@@ -29,4 +29,3 @@ Este repositório serve como base prática complementar à wiki do projeto, onde
 ├── analysis/         # Extração de features e análises exploratórias
 ├── models/           # Modelos de Machine Learning (ex: XGBoost)
 ├── docs/             # Documentação técnica complementar
-└── notes/            # Anotações e estudos livres
