@@ -1,0 +1,17 @@
+# Dados binários brutos (transferir via SCP)
+data/dataset_ism_xgboost/*.pcap
+data/dataset_ism_xgboost/tr_te_sets/
+
+# Outputs do pipeline
+data/parsed_packets.csv
+data/features/
+
+# Arquivos temporários
+experiments/files.zip
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Modelos treinados (grandes)
+models/*.json
+models/*.pkl
