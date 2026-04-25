@@ -8,6 +8,7 @@ data/features/
 
 # Arquivos temporários
 experiments/files.zip
+experiments/files/.venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
