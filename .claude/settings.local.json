@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python experiments/files/01_parse_pcap.py --pcap-dir \"C:\\\\Mestrado\\\\SDV_Research\\\\data\\\\dataset_ism_xgboost\" --output \"C:\\\\Mestrado\\\\SDV_Research\\\\data\\\\parsed_packets.csv\")"
+    ]
+  }
+}
