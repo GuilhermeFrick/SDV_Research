@@ -1,0 +1,23 @@
+# Reprodução Kim et al. (2026) — SOME/IP XGBoost IDS
+# Instale com: pip install -r requirements.txt
+
+# ── Parsing de rede ────────────────────────────────────────────────────────────
+scapy>=2.5.0
+
+# ── Manipulação de dados ───────────────────────────────────────────────────────
+pandas>=1.5.0
+numpy>=1.23.0
+
+# ── Machine Learning ───────────────────────────────────────────────────────────
+xgboost>=1.7.0
+scikit-learn>=1.2.0
+lightgbm>=3.3.0          # Baseline LGB (opcional, mas recomendado)
+
+# ── Aumentação com GAN ─────────────────────────────────────────────────────────
+ctgan>=0.7.0              # CTGAN para balanceamento de classes
+
+# ── Visualização ───────────────────────────────────────────────────────────────
+matplotlib>=3.6.0
+
+# ── Utilidades ─────────────────────────────────────────────────────────────────
+tqdm>=4.65.0              # Barras de progresso (opcional)
