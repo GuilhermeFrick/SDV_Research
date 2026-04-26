@@ -1,24 +1,44 @@
 """
 SOME/IP IDS - Etapa 2: Extração de Features Comportamentais
 =============================================================
-Reprodução de Kim et al. (2026) - Seção 5.2 (Feature Extraction) e
-Seção 5.3 (Feature Vector Generation)
+Reprodução de Kim et al. (2026) - Seções 5.2-5.3
+(Feature Extraction & Feature Vector Generation)
 
-Implementa as 9 features da Tabela 1 do artigo:
+Implementa as 9 features comportamentais da Tabela 1 do artigo,
+calculadas por fluxo (five-tuple) sobre o CSV gerado pela Etapa 1.
+O processamento é feito em chunks para suportar datasets de 7+ milhões
+de registros sem estourar a memória RAM.
 
-  Categoria          | Feature
-  -------------------|------------------------------------------
-  Time interval      | IP time interval
-  Payload likelihood | SOME/IP(-SD) likelihood, TCP/UDP likelihood
-  Payload entropy    | SOME/IP(-SD) entropy,   TCP/UDP entropy
-  Payload changes    | SOME/IP(-SD) payload changes, TCP/UDP payload changes
-  Length changes     | IP length changes, TCP/UDP length changes
+Features (Tabela 1):
 
-As features são calculadas POR FLUXO (five-tuple: src_ip, dst_ip,
-src_port, dst_port, transport) seguindo a Seção 5.2 do artigo.
+.. code-block:: text
 
-Entrada : data/parsed_packets.csv  (saída do script 01)
-Saída   : data/features.csv        (pronto para o XGBoost)
+    Categoria          | Feature
+    -------------------|------------------------------------------
+    Time interval      | IP time interval
+    Payload likelihood | SOME/IP(-SD) likelihood, TCP/UDP likelihood
+    Payload entropy    | SOME/IP(-SD) entropy,    TCP/UDP entropy
+    Payload changes    | SOME/IP(-SD) payload changes, TCP/UDP payload changes
+    Length changes     | IP length changes, TCP/UDP length changes
+
+Entrada:
+    data/parsed_packets.csv  — saída do script 01
+
+Saída:
+    data/train_features.csv  — treino (50%, normalizado, Min-Max)
+    data/test_features.csv   — teste  (50%, normalizado, Min-Max)
+    data/all_features_raw.csv — todas as amostras sem normalização
+
+Referência:
+    Kim et al. (2026). XGBoost-Based Anomaly Detection Framework for SOME/IP
+    in In-Vehicle Networks. Systems, 14(2), 196.
+    DOI: https://doi.org/10.3390/systems14020196
+
+Uso:
+    python 02_extract_features.py --parsed-csv data/parsed_packets.csv --output-dir data/
+
+Autor:
+    Guilherme Frick
 """
 
 import numpy as np
@@ -32,34 +52,60 @@ from collections import defaultdict
 # ══════════════════════════════════════════════════════════════════════════════
 
 class ByteDistributionModel:
-    """
-    Modelo de distribuição de bytes por posição, aprendido sobre tráfego benigno.
+    """Modelo de distribuição de bytes por posição aprendido sobre tráfego benigno.
 
-    Implementa as Equações 2-6 do artigo:
-      - Eq. 2: frequência ci(b) de cada byte b na posição i
-      - Eq. 3: probabilidade Pi(b) com Laplace smoothing
-      - Eq. 5: log-likelihood  log L(x) = Σ log Pi(xi)
-      - Eq. 6: cross-entropy   H(x;P)  = -(1/L) Σ log Pi(xi)
+    Implementa as Equações 2-6 do artigo para calcular a probabilidade de
+    cada byte em cada posição do payload, usando Laplace smoothing para
+    evitar probabilidades zero. O modelo treinado é usado para medir o
+    quanto um novo payload se desvia do comportamento benigno esperado.
+
+    Equações implementadas:
+
+    - Eq. 2: ``c_i(b)`` — frequência do byte ``b`` na posição ``i``
+    - Eq. 3: ``P_i(b) = (c_i(b) + alpha) / (N_i + 256 * alpha)`` (Laplace smoothing)
+    - Eq. 5: ``log L(x) = sum log P_i(x_i)`` (log-likelihood)
+    - Eq. 6: ``H(x;P) = -(1/L) sum log P_i(x_i)`` (cross-entropy)
+
+    Attributes:
+        alpha: Parâmetro de Laplace smoothing (deve ser > 0).
+        max_positions: Número máximo de posições de byte analisadas.
+        probs_: Array de probabilidades de shape (max_positions, 256), disponível
+            após ``fit()``.
+        fitted_: Indica se o modelo já foi treinado.
+
+    Example:
+        >>> model = ByteDistributionModel(alpha=1.0)
+        >>> model.fit(benign_df["payload_hex"])
+        >>> score = model.log_likelihood("deadbeef")
     """
 
     def __init__(self, alpha: float = 1.0, max_positions: int = 256):
-        """
-        alpha        : parâmetro de Laplace smoothing (α > 0)
-        max_positions: número máximo de posições de byte consideradas
+        """Inicializa o modelo com os hiperparâmetros de smoothing.
+
+        Args:
+            alpha: Parâmetro de Laplace smoothing (alpha > 0). Valor maior
+                suaviza mais a distribuição, reduzindo a sensibilidade a bytes
+                raros no tráfego benigno.
+            max_positions: Número máximo de posições de byte consideradas.
+                Payloads mais longos têm os bytes excedentes ignorados.
         """
         self.alpha         = alpha
         self.max_positions = max_positions
-        self.counts_       = None   # shape: (max_positions, 256)
-        self.probs_        = None   # shape: (max_positions, 256) — após fit()
+        self.counts_       = None
+        self.probs_        = None
         self.fitted_       = False
 
-    def fit(self, payloads_hex: pd.Series):
-        """
-        Aprende a distribuição a partir de payloads benignas (hex strings).
+    def fit(self, payloads_hex: pd.Series) -> None:
+        """Aprende a distribuição de bytes a partir de payloads benignas.
 
-        payloads_hex: Series de strings hexadecimais, ex: "de ad be ef ..."
+        Conta a frequência de cada byte em cada posição sobre todas as
+        payloads fornecidas e calcula as probabilidades com Laplace smoothing
+        (Equação 3). Strings hexadecimais inválidas são ignoradas.
+
+        Args:
+            payloads_hex: Series de strings hexadecimais representando payloads
+                benignas, ex: ``"deadbeef1234..."``. Valores NaN são ignorados.
         """
-        # Inicializa contadores (posição x valor_byte)
         counts = np.zeros((self.max_positions, 256), dtype=np.float64)
 
         for hex_str in payloads_hex.dropna():
@@ -70,16 +116,23 @@ class ByteDistributionModel:
             for i, b in enumerate(raw[:self.max_positions]):
                 counts[i, b] += 1
 
-        # Laplace smoothing: Pi(b) = (ci(b) + α) / (N_i + 256*α)
-        totals = counts.sum(axis=1, keepdims=True)            # N_i por posição
-        self.probs_ = (counts + self.alpha) / (totals + 256 * self.alpha)
+        totals = counts.sum(axis=1, keepdims=True)
+        self.probs_  = (counts + self.alpha) / (totals + 256 * self.alpha)
         self.counts_ = counts
         self.fitted_ = True
 
     def log_likelihood(self, hex_str: str) -> float:
-        """
-        Calcula log L(x) = Σ_{i=1}^{L} log Pi(xi)   (Equação 5).
-        Retorna 0.0 se o payload for vazio ou inválido.
+        """Calcula o log-likelihood do payload em relação ao modelo benigno.
+
+        Implementa a Equação 5: ``log L(x) = sum_{i=1}^{L} log P_i(x_i)``.
+        Valor mais negativo indica payload mais improvável (mais anômalo).
+
+        Args:
+            hex_str: Payload em formato hexadecimal. Retorna ``0.0`` se
+                ``None``, vazio, inválido ou se o modelo não foi treinado.
+
+        Returns:
+            Log-likelihood (valor <= 0). Quanto mais negativo, mais anômalo.
         """
         if not self.fitted_ or not isinstance(hex_str, str) or len(hex_str) < 2:
             return 0.0
@@ -92,14 +145,22 @@ class ByteDistributionModel:
 
         ll = 0.0
         for i, b in enumerate(raw[:self.max_positions]):
-            p = self.probs_[i, b]
-            ll += np.log(p + 1e-12)   # epsilon para estabilidade numérica
+            ll += np.log(self.probs_[i, b] + 1e-12)
         return ll
 
     def cross_entropy(self, hex_str: str) -> float:
-        """
-        Calcula H(x;P) = -(1/L) Σ log Pi(xi)   (Equação 6).
-        Normalizado pelo comprimento → independente do tamanho do payload.
+        """Calcula a cross-entropy do payload em relação ao modelo benigno.
+
+        Implementa a Equação 6: ``H(x;P) = -(1/L) sum log P_i(x_i)``.
+        Normalizada pelo comprimento L, tornando a métrica independente
+        do tamanho do payload e comparável entre pacotes de tamanhos diferentes.
+
+        Args:
+            hex_str: Payload em formato hexadecimal. Retorna ``0.0`` se
+                ``None``, vazio, inválido ou se o modelo não foi treinado.
+
+        Returns:
+            Cross-entropy (valor >= 0). Quanto maior, mais anômalo.
         """
         if not self.fitted_ or not isinstance(hex_str, str) or len(hex_str) < 2:
             return 0.0
@@ -113,8 +174,7 @@ class ByteDistributionModel:
 
         ce = 0.0
         for i, b in enumerate(raw[:self.max_positions]):
-            p = self.probs_[i, b]
-            ce -= np.log(p + 1e-12)
+            ce -= np.log(self.probs_[i, b] + 1e-12)
         return ce / L
 
 
@@ -123,13 +183,20 @@ class ByteDistributionModel:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def hamming_distance(hex_a: str, hex_b: str) -> float:
-    """
-    Distância de Hamming bit-a-bit entre dois payloads (Equação 7).
+    """Calcula a distância de Hamming bit-a-bit entre dois payloads.
 
-    dH(b1, b2) = Σ wH(b1_i XOR b2_i)
+    Implementa a Equação 7: ``d_H(b1, b2) = sum w_H(b1_i XOR b2_i)``,
+    onde ``w_H`` é o peso de Hamming (número de bits '1') do XOR de cada byte.
+    Quando os payloads têm tamanhos diferentes, compara apenas os primeiros
+    ``min(len(a), len(b))`` bytes.
 
-    Implementado como contagem de bits '1' no XOR de cada byte.
-    Retorna 0.0 se algum dos payloads for inválido ou vazio.
+    Args:
+        hex_a: Primeiro payload em formato hexadecimal.
+        hex_b: Segundo payload em formato hexadecimal.
+
+    Returns:
+        Número total de bits diferentes (>= 0), ou ``0.0`` se algum dos
+        payloads for inválido, vazio ou não for string.
     """
     if not isinstance(hex_a, str) or not isinstance(hex_b, str):
         return 0.0
@@ -139,7 +206,6 @@ def hamming_distance(hex_a: str, hex_b: str) -> float:
     except ValueError:
         return 0.0
 
-    # Trunca ou estende para o menor comprimento
     L = min(len(raw_a), len(raw_b))
     if L == 0:
         return 0.0
@@ -294,17 +360,30 @@ FEATURE_COLS = [
     "f08_ip_length_changes",
     "f09_tcpudp_length_changes",
 ]
+"""list[str]: Nomes das 9 colunas de feature brutas (pré-normalização)."""
+
 
 def minmax_normalize(df_train: pd.DataFrame,
-                     df_test:  pd.DataFrame = None):
-    """
-    Aplica normalização Min-Max (Equação 8):
-      x' = (x - x_min) / (x_max - x_min)
+                     df_test: pd.DataFrame = None) -> tuple:
+    """Aplica normalização Min-Max nas 9 features (Equação 8).
 
-    Os parâmetros são calculados APENAS no conjunto de treino
-    e aplicados também no teste (sem vazamento de informação).
+    Calcula os parâmetros (min, max) exclusivamente no conjunto de treino
+    e os aplica também no teste, evitando data leakage. Valores do teste
+    fora do intervalo de treino são clipados para [0, 1].
 
-    Retorna (df_train_norm, df_test_norm, stats_dict)
+    Equação 8: ``x' = (x - x_min) / (x_max - x_min)``
+
+    Args:
+        df_train: DataFrame de treino contendo as colunas de ``FEATURE_COLS``.
+        df_test: DataFrame de teste opcional. Se fornecido, a normalização
+            usa os parâmetros calculados no treino.
+
+    Returns:
+        Tupla ``(df_train_norm, df_test_norm, stats)`` onde:
+
+        - ``df_train_norm``: treino com colunas ``*_norm`` adicionadas.
+        - ``df_test_norm``: teste normalizado, ou ``None`` se não fornecido.
+        - ``stats``: dicionário ``{col: {"min": float, "max": float}}``.
     """
     stats = {}
     df_tr = df_train.copy()
@@ -477,12 +556,15 @@ if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser(
-        description="Extração de features comportamentais SOME/IP (Kim et al. 2026)"
+        description="Extração de features comportamentais SOME/IP — Etapa 2 de Kim et al. (2026).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     ap.add_argument("--parsed-csv", default="data/parsed_packets.csv",
-                    help="CSV gerado pelo script 01 (padrão: data/parsed_packets.csv)")
+                    help="CSV gerado pelo script 01.")
     ap.add_argument("--output-dir", default="data/",
-                    help="Pasta de saída para CSVs de features (padrão: data/)")
+                    help="Pasta de saída para os CSVs de features.")
+    ap.add_argument("--chunk-size", type=int, default=500_000,
+                    help="Linhas por chunk (reduzir se a RAM for limitada).")
     args = ap.parse_args()
 
-    run_feature_extraction(args.parsed_csv, args.output_dir)
+    run_feature_extraction(args.parsed_csv, args.output_dir, args.chunk_size)
