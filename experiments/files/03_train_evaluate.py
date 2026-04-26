@@ -461,12 +461,12 @@ def run_training(train_csv: str, test_csv: str, output_dir: str,
           f"({1e6*t_infer/max(len(X_test),1):.4f} µs/amostra)")
 
     # Cenário balanceado (downsampling da classe majoritária)
-    n_attack  = int((y_test == 1).sum())
     normal_idx = np.where(y_test == 0)[0]
     attack_idx = np.where(y_test == 1)[0]
-    bal_idx   = np.concatenate([
-        np.random.choice(normal_idx, n_attack, replace=False),
-        attack_idx,
+    n_bal = min(len(normal_idx), len(attack_idx))
+    bal_idx = np.concatenate([
+        np.random.choice(normal_idx, n_bal, replace=False),
+        np.random.choice(attack_idx, n_bal, replace=False),
     ])
     X_test_bal = X_test[bal_idx]
     y_test_bal = y_test[bal_idx]
@@ -487,9 +487,9 @@ def run_training(train_csv: str, test_csv: str, output_dir: str,
     metrics_summary = {
         "xgboost": {
             "imbalanced": {k: float(v) for k, v in res_imbal.items()
-                           if k not in ("y_prob","y_true","y_pred")},
+                           if k not in ("y_prob","y_true","y_pred","dataset_name","dataset")},
             "balanced":   {k: float(v) for k, v in res_bal.items()
-                           if k not in ("y_prob","y_true","y_pred")},
+                           if k not in ("y_prob","y_true","y_pred","dataset_name","dataset")},
         },
         "optimal_threshold": float(opt_threshold),
         "training_time_s":   float(t_train),
