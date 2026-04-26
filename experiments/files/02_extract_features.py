@@ -154,116 +154,115 @@ def hamming_distance(hex_a: str, hex_b: str) -> float:
 # 3. Cálculo das features por fluxo
 # ══════════════════════════════════════════════════════════════════════════════
 
-def flow_key(row):
+def _delta(new_val, prev_val) -> float:
+    """Retorna a diferença entre dois valores consecutivos, ou 0.0 se algum for None."""
+    if prev_val is None or new_val is None:
+        return 0.0
+    return float(new_val) - float(prev_val)
+
+
+def _payload_change(prev_pld: str | None, pld: str | None) -> float:
+    """Retorna a distância de Hamming entre dois payloads, ou 0.0 se algum for None."""
+    if prev_pld is None or pld is None:
+        return 0.0
+    return hamming_distance(prev_pld, pld)
+
+
+def make_flow_state() -> dict:
+    """Cria dicionário de estado por fluxo para uso entre chunks.
+
+    Returns:
+        Dicionário com quatro defaultdicts, um por campo de estado.
+        Deve ser criado uma vez e passado para cada chamada de
+        ``extract_features`` para preservar continuidade entre chunks.
     """
-    Chave de five-tuple para agrupar pacotes do mesmo fluxo.
-    Segue a Seção 5.2: 'packets sharing the same source and destination
-    endpoints (IP/port pairs) grouped and processed separately'.
-    """
-    return (
-        str(row.get("src_ip", "")),
-        str(row.get("dst_ip", "")),
-        str(row.get("src_port", "")),
-        str(row.get("dst_port", "")),
-        str(row.get("transport", "")),
-    )
+    return {
+        "prev_ts":      defaultdict(lambda: None),
+        "prev_ip_len":  defaultdict(lambda: None),
+        "prev_tl_len":  defaultdict(lambda: None),
+        "prev_payload": defaultdict(lambda: None),
+    }
 
 
 def extract_features(df: pd.DataFrame,
                      someip_model: ByteDistributionModel,
-                     tcpudp_model: ByteDistributionModel) -> pd.DataFrame:
-    """
-    Calcula as 9 features da Tabela 1 para cada pacote em df.
+                     tcpudp_model: ByteDistributionModel,
+                     flow_state: dict = None) -> pd.DataFrame:
+    """Calcula as 9 features da Tabela 1 para cada pacote em df.
+
+    Processa um chunk do CSV preservando o estado de fluxo entre chamadas
+    sucessivas. Para processar todo o dataset sem estourar memória, chame
+    esta função em loop passando sempre o mesmo ``flow_state``.
 
     Features calculadas:
-      f01 : ip_time_interval         (delta_t entre pacotes consecutivos no fluxo)
-      f02 : someip_likelihood        (log-likelihood do payload SOME/IP)
-      f03 : tcpudp_likelihood        (log-likelihood do payload TCP/UDP — mesmo hex, modelo diferente)
-      f04 : someip_entropy           (cross-entropy do payload SOME/IP)
-      f05 : tcpudp_entropy           (cross-entropy TCP/UDP)
-      f06 : someip_payload_changes   (Hamming distance payloads SOME/IP consecutivos)
-      f07 : tcpudp_payload_changes   (Hamming distance payloads TCP/UDP consecutivos)
-      f08 : ip_length_changes        (delta comprimento IP entre pacotes consecutivos)
-      f09 : tcpudp_length_changes    (delta comprimento TCP/UDP entre pacotes consecutivos)
 
-    Nota: o artigo mantém SOME/IP e SOME/IP-SD separados. Aqui usamos
-    a coluna is_sd para distinguir, mas o modelo de bytes é compartilhado
-    para simplificação — pode ser separado facilmente.
+    - f01: ip_time_interval         — delta_t entre pacotes consecutivos no fluxo
+    - f02: someip_likelihood        — log-likelihood do payload SOME/IP
+    - f03: tcpudp_likelihood        — log-likelihood do payload TCP/UDP
+    - f04: someip_entropy           — cross-entropy do payload SOME/IP
+    - f05: tcpudp_entropy           — cross-entropy TCP/UDP
+    - f06: someip_payload_changes   — Hamming distance payloads SOME/IP consecutivos
+    - f07: tcpudp_payload_changes   — Hamming distance payloads TCP/UDP consecutivos
+    - f08: ip_length_changes        — delta comprimento IP entre pacotes consecutivos
+    - f09: tcpudp_length_changes    — delta comprimento TCP/UDP entre pacotes consecutivos
+
+    Args:
+        df: Chunk do CSV parseado (saída do script 01).
+        someip_model: Modelo de distribuição de bytes treinado no tráfego SOME/IP benigno.
+        tcpudp_model: Modelo de distribuição de bytes treinado no tráfego TCP/UDP benigno.
+        flow_state: Dicionário criado por ``make_flow_state()``. Se ``None``, cria
+            um estado novo (adequado apenas para chunks isolados).
+
+    Returns:
+        DataFrame com as 9 features e colunas de identificação para este chunk.
     """
+    if flow_state is None:
+        flow_state = make_flow_state()
 
-    # Garante ordenação por timestamp
+    prev_ts      = flow_state["prev_ts"]
+    prev_ip_len  = flow_state["prev_ip_len"]
+    prev_tl_len  = flow_state["prev_tl_len"]
+    prev_payload = flow_state["prev_payload"]
+
     df = df.sort_values("timestamp").reset_index(drop=True)
-
-    # Dicionários de estado por fluxo (armazenam o pacote anterior)
-    prev_ts       = defaultdict(lambda: None)
-    prev_ip_len   = defaultdict(lambda: None)
-    prev_tl_len   = defaultdict(lambda: None)
-    prev_payload  = defaultdict(lambda: None)
 
     records = []
 
-    for _, row in df.iterrows():
-        key    = flow_key(row)
-        ts     = row.get("timestamp", 0.0)
-        ip_len = row.get("ip_len", None)
-        tl_len = row.get("transport_len", None)
-        pld    = row.get("payload_hex", None)   # hex string do payload SOME/IP
+    for row in df.itertuples(index=False):
+        key = (str(row.src_ip), str(row.dst_ip),
+               str(row.src_port), str(row.dst_port), str(row.transport))
+        ts     = row.timestamp
+        ip_len = row.ip_len
+        tl_len = row.transport_len
+        pld    = row.payload_hex if isinstance(row.payload_hex, str) else None
 
-        # ── f01: IP time interval ──────────────────────────────────────────────
-        if prev_ts[key] is not None and ts is not None:
-            f01 = float(ts) - float(prev_ts[key])
-        else:
-            f01 = 0.0
-
-        # ── f02 & f04: SOME/IP likelihood e entropy ────────────────────────────
+        f01 = _delta(ts, prev_ts[key])
         f02 = someip_model.log_likelihood(pld)
-        f04 = someip_model.cross_entropy(pld)
-
-        # ── f03 & f05: TCP/UDP likelihood e entropy (mesmo hex, modelo diferente)
         f03 = tcpudp_model.log_likelihood(pld)
+        f04 = someip_model.cross_entropy(pld)
         f05 = tcpudp_model.cross_entropy(pld)
+        f06 = _payload_change(prev_payload[key], pld)
+        f07 = f06
+        f08 = _delta(ip_len, prev_ip_len[key])
+        f09 = _delta(tl_len, prev_tl_len[key])
 
-        # ── f06: SOME/IP payload changes (Hamming) ─────────────────────────────
-        if prev_payload[key] is not None and pld is not None:
-            f06 = hamming_distance(prev_payload[key], pld)
-        else:
-            f06 = 0.0
-
-        # ── f07: TCP/UDP payload changes (Hamming — mesmo campo, contexto diferente)
-        f07 = f06   # No dataset, o payload raw é o mesmo para ambas as camadas
-
-        # ── f08: IP length changes ─────────────────────────────────────────────
-        if prev_ip_len[key] is not None and ip_len is not None:
-            f08 = float(ip_len) - float(prev_ip_len[key])
-        else:
-            f08 = 0.0
-
-        # ── f09: TCP/UDP length changes ────────────────────────────────────────
-        if prev_tl_len[key] is not None and tl_len is not None:
-            f09 = float(tl_len) - float(prev_tl_len[key])
-        else:
-            f09 = 0.0
-
-        # ── Atualiza estado do fluxo ───────────────────────────────────────────
         prev_ts[key]      = ts
         prev_ip_len[key]  = ip_len
         prev_tl_len[key]  = tl_len
         prev_payload[key] = pld
 
-        # ── Monta registro de saída ────────────────────────────────────────────
+        label_raw = row.label if hasattr(row, "label") else "unknown"
         records.append({
-            # Identificadores (para rastreabilidade)
             "timestamp":    ts,
-            "src_ip":       row.get("src_ip"),
-            "dst_ip":       row.get("dst_ip"),
-            "src_port":     row.get("src_port"),
-            "dst_port":     row.get("dst_port"),
-            "transport":    row.get("transport"),
-            "is_sd":        row.get("is_sd", False),
-            "service_id":   row.get("service_id"),
-            "method_id":    row.get("method_id"),
-            "msg_type":     row.get("msg_type"),
-            # 9 features comportamentais (Tabela 1)
+            "src_ip":       row.src_ip,
+            "dst_ip":       row.dst_ip,
+            "src_port":     row.src_port,
+            "dst_port":     row.dst_port,
+            "transport":    row.transport,
+            "is_sd":        getattr(row, "is_sd", False),
+            "service_id":   getattr(row, "service_id", None),
+            "method_id":    getattr(row, "method_id", None),
+            "msg_type":     getattr(row, "msg_type", None),
             "f01_ip_time_interval":       f01,
             "f02_someip_likelihood":      f02,
             "f03_tcpudp_likelihood":      f03,
@@ -273,9 +272,8 @@ def extract_features(df: pd.DataFrame,
             "f07_tcpudp_payload_changes": f07,
             "f08_ip_length_changes":      f08,
             "f09_tcpudp_length_changes":  f09,
-            # Rótulo (0=normal, 1=ataque)
-            "label_str":    row.get("label", "unknown"),
-            "label":        0 if str(row.get("label", "")).lower() == "normal" else 1,
+            "label_str":    label_raw,
+            "label":        0 if str(label_raw).lower() == "normal" else 1,
         })
 
     return pd.DataFrame(records)
@@ -342,90 +340,131 @@ def minmax_normalize(df_train: pd.DataFrame,
 # 5. Pipeline principal
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_feature_extraction(parsed_csv: str, output_dir: str):
+def run_feature_extraction(parsed_csv: str, output_dir: str,
+                           chunk_size: int = 500_000):
+    """Pipeline completo de extração de features com processamento em chunks.
+
+    Processa o CSV em blocos de ``chunk_size`` linhas para manter o uso de
+    memória limitado (~1-2 GB independente do tamanho do dataset). O estado
+    de fluxo é preservado entre chunks para que features dependentes de
+    sequência (time interval, payload changes) sejam calculadas corretamente.
+
+    Etapas:
+
+    1. Treina modelos de bytes em amostra do tráfego benigno (primeira passagem).
+    2. Extrai as 9 features chunk a chunk, gravando diretamente no CSV de saída.
+    3. Lê os rótulos do CSV gerado para montar o split estratificado 50/50.
+    4. Relê o CSV e distribui cada linha em treino ou teste usando máscara booleana.
+    5. Aplica normalização Min-Max (parâmetros calculados apenas no treino).
+
+    Args:
+        parsed_csv: Caminho para o CSV gerado pelo script 01.
+        output_dir: Pasta onde os CSVs de features serão salvos.
+        chunk_size: Número de linhas por chunk (padrão: 500.000 ~= 200 MB RAM).
+
+    Returns:
+        Tupla ``(train_path, test_path)`` com os caminhos dos CSVs gerados.
     """
-    Pipeline completo de extração de features.
-
-    1. Lê o CSV parseado
-    2. Treina modelos de distribuição de bytes no tráfego benigno
-    3. Calcula as 9 features para todos os pacotes
-    4. Normaliza Min-Max
-    5. Salva CSVs de treino e teste (split 50/50 estratificado)
-    """
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # ── Leitura ────────────────────────────────────────────────────────────────
-    print("[1/5] Lendo CSV parseado...")
-    df = pd.read_csv(parsed_csv, low_memory=False)
-    print(f"      {len(df):,} registros  |  colunas: {list(df.columns)[:8]}...")
-
-    # ── Separa tráfego benigno para treinar o modelo de bytes ──────────────────
-    print("\n[2/5] Treinando modelos de distribuição de bytes (tráfego benigno)...")
-    benign = df[df["label"].str.lower() == "normal"]
-    print(f"      Amostras benignas: {len(benign):,}")
-
-    someip_model = ByteDistributionModel(alpha=1.0)
-    tcpudp_model = ByteDistributionModel(alpha=1.0)
-
-    # Treina em subconjunto se for muito grande (para velocidade)
-    sample_size = min(50_000, len(benign))
-    sample      = benign.sample(n=sample_size, random_state=42)
-
-    someip_model.fit(sample["payload_hex"])
-    tcpudp_model.fit(sample["payload_hex"])   # modelo separado, mesmos dados
-    print(f"      Modelos treinados em {sample_size:,} amostras.")
-
-    # ── Extração de features ───────────────────────────────────────────────────
-    print("\n[3/5] Extraindo 9 features comportamentais (Tabela 1)...")
-    print("      (pode levar alguns minutos para datasets grandes)")
-    features_df = extract_features(df, someip_model, tcpudp_model)
-    print(f"      Features extraídas: {len(features_df):,} amostras")
-
-    # Distribuição de classes
-    vc = features_df["label"].value_counts()
-    print(f"      Normal: {vc.get(0,0):,}  |  Ataque: {vc.get(1,0):,}  "
-          f"({100*vc.get(1,0)/max(len(features_df),1):.1f}% ataques)")
-
-    # ── Split estratificado 50/50 (seguindo o artigo) ──────────────────────────
-    print("\n[4/5] Dividindo treino/teste (50/50 estratificado)...")
     from sklearn.model_selection import train_test_split
 
-    X = features_df.drop(columns=["label"])
-    y = features_df["label"]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.5, stratify=y, random_state=42
-    )
-
-    df_train = X_train.copy(); df_train["label"] = y_train.values
-    df_test  = X_test.copy();  df_test["label"]  = y_test.values
-
-    print(f"      Treino: {len(df_train):,}  |  Teste: {len(df_test):,}")
-
-    # ── Normalização Min-Max ───────────────────────────────────────────────────
-    print("\n[5/5] Aplicando normalização Min-Max (Equação 8)...")
-    df_train_norm, df_test_norm, stats = minmax_normalize(df_train, df_test)
-
-    # ── Salva resultados ───────────────────────────────────────────────────────
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    raw_path   = out_dir / "all_features_raw.csv"
     train_path = out_dir / "train_features.csv"
     test_path  = out_dir / "test_features.csv"
-    raw_path   = out_dir / "all_features_raw.csv"
 
-    df_train_norm.to_csv(train_path, index=False)
-    df_test_norm.to_csv(test_path,   index=False)
-    features_df.to_csv(raw_path,     index=False)
+    # ── [1/5] Treina modelos de bytes em amostra benigna (sem carregar tudo) ───
+    print("[1/5] Treinando modelos de distribuição de bytes (tráfego benigno)...")
+    benign_payloads = []
+    for chunk in pd.read_csv(parsed_csv, usecols=["label", "payload_hex"],
+                              chunksize=chunk_size, low_memory=False):
+        sub = chunk[chunk["label"].str.lower() == "normal"]["payload_hex"].dropna()
+        benign_payloads.append(sub)
+        if sum(len(b) for b in benign_payloads) >= 50_000:
+            break
+
+    sample = pd.concat(benign_payloads).head(50_000)
+    someip_model = ByteDistributionModel(alpha=1.0)
+    tcpudp_model = ByteDistributionModel(alpha=1.0)
+    someip_model.fit(sample)
+    tcpudp_model.fit(sample)
+    print(f"      Modelos treinados em {len(sample):,} amostras benignas.")
+
+    # ── [2/5] Extrai features chunk a chunk, grava CSV incremental ─────────────
+    print("\n[2/5] Extraindo 9 features comportamentais (Tabela 1)...")
+    print(f"      Chunk size: {chunk_size:,} linhas  |  arquivo: {raw_path.name}")
+    flow_state  = make_flow_state()
+    first_write = True
+    n_total     = 0
+
+    for chunk in pd.read_csv(parsed_csv, chunksize=chunk_size, low_memory=False):
+        feat_chunk = extract_features(chunk, someip_model, tcpudp_model, flow_state)
+        feat_chunk.to_csv(raw_path, mode="a", header=first_write, index=False)
+        first_write = False
+        n_total += len(feat_chunk)
+        print(f"      ... {n_total:,} features extraídas")
+
+    print(f"      Total: {n_total:,} amostras")
+
+    # ── [3/5] Lê rótulos para montar split estratificado ───────────────────────
+    print("\n[3/5] Montando split estratificado 50/50...")
+    labels = pd.concat(
+        chunk["label"]
+        for chunk in pd.read_csv(raw_path, usecols=["label"], chunksize=chunk_size)
+    ).values
+
+    idx = np.arange(len(labels))
+    train_idx, _ = train_test_split(idx, test_size=0.5, stratify=labels, random_state=42)
+    is_train = np.zeros(len(labels), dtype=bool)
+    is_train[train_idx] = True
+    print(f"      Treino: {is_train.sum():,}  |  Teste: {(~is_train).sum():,}")
+
+    # ── [4/5] Distribui linhas entre treino e teste ────────────────────────────
+    print("\n[4/5] Gravando arquivos de treino e teste...")
+    row_num = 0
+    first_tr = first_te = True
+
+    for chunk in pd.read_csv(raw_path, chunksize=chunk_size):
+        chunk_mask = is_train[row_num: row_num + len(chunk)]
+        chunk[chunk_mask].to_csv(train_path,  mode="a", header=first_tr, index=False)
+        chunk[~chunk_mask].to_csv(test_path,  mode="a", header=first_te, index=False)
+        first_tr = first_te = False
+        row_num += len(chunk)
+
+    # ── [5/5] Normalização Min-Max ─────────────────────────────────────────────
+    print("\n[5/5] Aplicando normalização Min-Max (Equação 8)...")
+
+    # Calcula min/max apenas no treino
+    stats = {col: {"min": float("inf"), "max": float("-inf")} for col in FEATURE_COLS}
+    for chunk in pd.read_csv(train_path, usecols=FEATURE_COLS, chunksize=chunk_size):
+        for col in FEATURE_COLS:
+            stats[col]["min"] = min(stats[col]["min"], chunk[col].min())
+            stats[col]["max"] = max(stats[col]["max"], chunk[col].max())
+
+    # Aplica normalização gravando arquivos finais normalizados
+    for src, dst, label in [(train_path, out_dir / "train_features_norm.csv", "treino"),
+                             (test_path,  out_dir / "test_features_norm.csv",  "teste")]:
+        first = True
+        for chunk in pd.read_csv(src, chunksize=chunk_size):
+            for col in FEATURE_COLS:
+                denom = stats[col]["max"] - stats[col]["min"]
+                if denom == 0:
+                    chunk[col + "_norm"] = 0.0
+                else:
+                    chunk[col + "_norm"] = ((chunk[col] - stats[col]["min"]) / denom).clip(0.0, 1.0)
+            chunk.to_csv(dst, mode="a", header=first, index=False)
+            first = False
+        # Substitui arquivo original pelo normalizado
+        dst.replace(src)
 
     print(f"\n{'='*60}")
-    print(f"CONCLUÍDO")
+    print("CONCLUIDO")
     print(f"  Treino (normalizado): {train_path}")
     print(f"  Teste  (normalizado): {test_path}")
     print(f"  Features brutas     : {raw_path}")
-    print(f"\nColunas de feature normalizadas:")
+    print("\n  Min/Max por feature (calculado no treino):")
     for col in FEATURE_COLS:
-        col_n = col + "_norm"
-        print(f"  {col_n:<40s}  "
-              f"min={stats[col]['min']:.4f}  max={stats[col]['max']:.4f}")
+        print(f"    {col:<40s}  min={stats[col]['min']:.4f}  max={stats[col]['max']:.4f}")
 
     return str(train_path), str(test_path)
 
