@@ -176,15 +176,15 @@ def extract_features(df: pd.DataFrame,
     Calcula as 9 features da Tabela 1 para cada pacote em df.
 
     Features calculadas:
-      f01 : ip_time_interval         (Δt entre pacotes consecutivos no fluxo)
+      f01 : ip_time_interval         (delta_t entre pacotes consecutivos no fluxo)
       f02 : someip_likelihood        (log-likelihood do payload SOME/IP)
       f03 : tcpudp_likelihood        (log-likelihood do payload TCP/UDP — mesmo hex, modelo diferente)
       f04 : someip_entropy           (cross-entropy do payload SOME/IP)
       f05 : tcpudp_entropy           (cross-entropy TCP/UDP)
       f06 : someip_payload_changes   (Hamming distance payloads SOME/IP consecutivos)
       f07 : tcpudp_payload_changes   (Hamming distance payloads TCP/UDP consecutivos)
-      f08 : ip_length_changes        (Δ comprimento IP entre pacotes consecutivos)
-      f09 : tcpudp_length_changes    (Δ comprimento TCP/UDP entre pacotes consecutivos)
+      f08 : ip_length_changes        (delta comprimento IP entre pacotes consecutivos)
+      f09 : tcpudp_length_changes    (delta comprimento TCP/UDP entre pacotes consecutivos)
 
     Nota: o artigo mantém SOME/IP e SOME/IP-SD separados. Aqui usamos
     a coluna is_sd para distinguir, mas o modelo de bytes é compartilhado
