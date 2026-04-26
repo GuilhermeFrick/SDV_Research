@@ -13,6 +13,5 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Modelos treinados (grandes)
-models/*.json
-models/*.pkl
+C:/Mestrado/SDV_Research/data/parsed_packets.csv
+
