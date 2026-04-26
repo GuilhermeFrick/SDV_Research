@@ -165,6 +165,52 @@ Os autores disponibilizam `X_train.npy` e `X_test.npy` com shape `(7.116.674, 12
 
 ---
 
+## Execução — Resultados Obtidos
+
+**Data:** 2026-04-26
+**Máquina:** frick-Lenovo-V15-G1-IML (Linux Mint)
+**Entrada:** `data/parsed_packets.csv` — 7 PCAPs completos (incluindo mitm)
+**Comando:**
+```bash
+experiments/files/.venv/bin/python experiments/files/02_extract_features.py \
+  --parsed-csv data/parsed_packets.csv \
+  --output-dir data/
+```
+
+### Volume de dados
+
+| Métrica | Valor |
+|---------|-------|
+| Total de amostras extraídas | 13.888.427 |
+| Treino (50%) | 6.944.213 |
+| Teste (50%) | 6.944.214 |
+| Amostras .npy dos autores (treino) | 7.116.674 |
+| Diferença em relação aos autores | ~2,4% |
+
+### Min/Max por feature (calculado no treino)
+
+| Feature | Min | Max | Observação |
+|---------|-----|-----|-----------|
+| f01_ip_time_interval | -10620.53 | 17132.10 | Valores negativos são artefato de chunk boundary (ver abaixo) |
+| f02_someip_likelihood | -253.52 | 0.00 | Log-likelihood — sempre ≤ 0 |
+| f03_tcpudp_likelihood | -253.52 | 0.00 | Idem |
+| f04_someip_entropy | 0.00 | 10.56 | Cross-entropy — sempre ≥ 0 |
+| f05_tcpudp_entropy | 0.00 | 10.56 | Idem |
+| f06_someip_payload_changes | 0.00 | 123.00 | Bits diferentes (Hamming) |
+| f07_tcpudp_payload_changes | 0.00 | 123.00 | Idem |
+| f08_ip_length_changes | -1240.00 | 1240.00 | Delta comprimento IP |
+| f09_tcpudp_length_changes | -1240.00 | 1240.00 | Delta comprimento TCP/UDP |
+
+### Problema identificado: f01 com valores negativos
+
+**Causa:** O processamento em chunks ordena os pacotes por `timestamp` **dentro** de cada chunk, mas não garante ordem global entre chunks. Quando um fluxo atravessa a fronteira entre dois chunks, o Δt calculado pode ser negativo (timestamp do próximo pacote < timestamp do pacote anterior no estado do fluxo).
+
+**Impacto:** A normalização Min-Max clipa valores fora do range [min_treino, max_treino] para [0, 1] no conjunto de teste, atenuando o efeito. O XGBoost é robusto a esses artefatos pontuais.
+
+**Solução futura:** Ordenar o CSV inteiro por timestamp antes do chunking, ou aumentar o `--chunk-size` para reduzir a frequência de fronteiras.
+
+---
+
 ## Próxima Etapa
 
 Com os CSVs de features gerados, seguir para:
