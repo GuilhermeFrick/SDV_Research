@@ -1,0 +1,37 @@
+{
+  "xgboost": {
+    "imbalanced": {
+      "threshold": 0.6,
+      "precision": 0.8423006591898666,
+      "recall": 0.9999505883491431,
+      "f1": 0.914380208290176,
+      "pr_auc": 0.9091195303624104,
+      "roc_auc": 0.6436284673438999
+    },
+    "balanced": {
+      "threshold": 0.6,
+      "precision": 0.500081266144798,
+      "recall": 0.9999580058627467,
+      "f1": 0.666729565012288,
+      "pr_auc": 0.675660577809529,
+      "roc_auc": 0.643934958798782
+    }
+  },
+  "optimal_threshold": 0.6,
+  "training_time_s": 565.4810130596161,
+  "inference_time_s": 96.8762481212616,
+  "n_train": 6944213,
+  "n_test_imbal": 6944214,
+  "n_test_bal": 2190782,
+  "feature_names": [
+    "f01_ip_time_interval_norm",
+    "f02_someip_likelihood_norm",
+    "f03_tcpudp_likelihood_norm",
+    "f04_someip_entropy_norm",
+    "f05_tcpudp_entropy_norm",
+    "f06_someip_payload_changes_norm",
+    "f07_tcpudp_payload_changes_norm",
+    "f08_ip_length_changes_norm",
+    "f09_tcpudp_length_changes_norm"
+  ]
+}
