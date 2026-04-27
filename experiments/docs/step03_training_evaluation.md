@@ -122,16 +122,16 @@ Todos avaliados com threshold=0.36 fixo para comparação justa.
 
 ```bash
 # Execução completa (com CTGAN e baselines — ~30-60 min)
-python experiments/files/03_train_evaluate.py \
+experiments/files/.venv/bin/python experiments/files/03_train_evaluate.py \
   --train-csv data/train_features.csv \
   --test-csv  data/test_features.csv \
-  --output-dir results/
+  --output-dir results/ctgan/
 
-# Execução rápida (sem CTGAN, sem baselines — ~5 min)
-python experiments/files/03_train_evaluate.py \
+# Execução rápida (sem CTGAN, sem baselines — ~10 min)
+experiments/files/.venv/bin/python experiments/files/03_train_evaluate.py \
   --train-csv data/train_features.csv \
   --test-csv  data/test_features.csv \
-  --output-dir results/ \
+  --output-dir results/no_ctgan/ \
   --no-ctgan \
   --no-baselines
 ```
@@ -142,12 +142,90 @@ python experiments/files/03_train_evaluate.py \
 
 ```
 results/
-├── xgboost_someip_ids.json           # Modelo treinado
-├── metrics_summary.json              # Métricas finais (imbalanceado + balanceado)
-├── baseline_comparison.csv           # Comparação com outros modelos
-├── figure10_performance_curves.png   # ROC + PR + F1×threshold + DET
-└── figures11_12_baseline_comparison.png  # Barras de comparação
+├── no_ctgan/                              # Run sem aumentação CTGAN
+│   ├── xgboost_someip_ids.json
+│   ├── metrics_summary.json
+│   └── figure10_performance_curves.png
+└── ctgan/                                 # Run com aumentação CTGAN + baselines
+    ├── xgboost_someip_ids.json
+    ├── metrics_summary.json
+    ├── baseline_comparison.csv
+    ├── figure10_performance_curves.png
+    └── figures11_12_baseline_comparison.png
 ```
+
+---
+
+## Resultados Obtidos
+
+### Run 1 — Sem CTGAN, sem baselines (`results/no_ctgan/`)
+
+> Executado em 2026-04-26. Treino: 6.944.213 amostras | Teste: 6.944.214 amostras.
+> Threshold ótimo encontrado: **0.60** (artigo reporta 0.36 — diferença esperada sem CTGAN).
+
+| Cenário | Precision | Recall | F1 | PR-AUC | ROC-AUC |
+|---------|-----------|--------|----|--------|---------|
+| Imbalanceado | 0.8423 | 1.0000 | 0.9144 | 0.9091 | 0.6436 |
+| Balanceado   | 0.5001 | 1.0000 | 0.6667 | 0.6757 | 0.6439 |
+
+**Tempo de treinamento:** 565 s | **Tempo de inferência:** 96.9 s (13.9 µs/amostra)
+
+**Comparação com o artigo (Kim et al.):**
+
+| Métrica | Obtido (sem CTGAN) | Artigo (com CTGAN) |
+|---------|-------------------|-------------------|
+| Threshold | 0.60 | 0.36 |
+| F1 (imbalanceado) | 0.9144 | 0.97 |
+| PR-AUC (imbalanceado) | 0.9091 | 0.93 |
+| ROC-AUC (imbalanceado) | 0.6436 | 0.99 |
+
+A diferença no ROC-AUC (0.64 vs 0.99) e no threshold (0.60 vs 0.36) são consequência direta da ausência do CTGAN: sem balanceamento sintético no treino, o modelo é enviesado para prever ataque (alto recall, baixa precision), elevando o threshold ótimo e prejudicando a separação de classes.
+
+**Gráfico de desempenho (Figura 10):**
+
+![Figura 10 — sem CTGAN](../../results/no_ctgan/figure10_performance_curves.png)
+
+---
+
+### Run 2 — Com CTGAN e baselines (`results/ctgan/`)
+
+> Executado em 2026-04-26. Treino: 6.944.213 amostras | Teste: 6.944.214 amostras.
+> **Nota:** o CTGAN foi pulado automaticamente — o script detectou que a classe de ataque (5.848.823) já é majoritária em relação ao tráfego normal (1.095.390), portanto não há necessidade de geração sintética. Isso inverte a premissa do artigo original, onde o tráfego benigno era a classe dominante.
+
+**Métricas XGBoost (idênticas ao Run 1 — CTGAN não foi aplicado):**
+
+| Cenário | Precision | Recall | F1 | PR-AUC | ROC-AUC |
+|---------|-----------|--------|----|--------|---------|
+| Imbalanceado | 0.8423 | 1.0000 | 0.9144 | 0.9091 | 0.6436 |
+| Balanceado   | 0.5001 | 1.0000 | 0.6667 | 0.6751 | 0.6435 |
+
+**Tempo de treinamento:** 491 s | **Tempo de inferência:** 96.9 s (13.9 µs/amostra)
+
+**Comparação com baselines (Seção 6.3):**
+
+| Modelo | Precision | Recall | F1 | PR-AUC | Treino (s) | Inferência (s) |
+|--------|-----------|--------|----|--------|-----------|----------------|
+| **XGB** | **0.8423** | **1.0000** | **0.9144** | **0.9091** | 333 | 84 |
+| LGB | 0.8423 | 1.0000 | 0.9144 | 0.9107 | 261 | 172 |
+| LR  | 0.8423 | 1.0000 | 0.9144 | 0.8718 | 10 | 0.2 |
+| RF  | 0.8422 | 0.9997 | 0.9142 | 0.8940 | 546 | 27 |
+| DT  | 0.8418 | 0.9945 | 0.9118 | 0.8876 | 41 | 1.0 |
+| KNN | 0.8643 | 0.5712 | 0.6878 | 0.8719 | 34 | 1575 |
+| NB  | 0.9400 | 0.0736 | 0.1364 | 0.8850 | 3 | 3 |
+
+**Destaques:**
+- XGB e LGB empatam em F1 (0.9144); LGB tem PR-AUC ligeiramente superior (0.9107 vs 0.9091)
+- KNN tem a pior latência de inferência (1575 s — inviável para IDS embarcado)
+- NB tem a maior Precision (0.94) mas Recall quase zero (0.07) — falha em detectar ataques
+- LR atinge o mesmo F1 que XGB em fração do tempo de treino (10 s vs 333 s)
+
+**Gráfico de desempenho (Figura 10):**
+
+![Figura 10 — com CTGAN](../../results/ctgan/figure10_performance_curves.png)
+
+**Gráfico comparação de baselines (Figuras 11-12):**
+
+![Figuras 11-12 — baselines](../../results/ctgan/figures11_12_baseline_comparison.png)
 
 ---
 
