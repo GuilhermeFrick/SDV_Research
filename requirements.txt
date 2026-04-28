@@ -1,0 +1,20 @@
+# ─── Notebook: 01_reproducao_kim2026.ipynb ───────────────────────────────────
+# Instalar com: pip install -r requirements.txt
+
+# Core científico
+numpy>=1.24
+pandas>=1.5
+matplotlib>=3.6
+
+# Machine Learning
+scikit-learn>=1.2
+xgboost>=2.0
+lightgbm>=4.0          # opcional — pulado automaticamente se ausente
+
+# Aumentação de dados
+ctgan>=0.9             # CTGAN (inclui PacGAN, WGAN-GP)
+sdv>=1.0               # SDV — inclui TVAESynthesizer
+                       # (sdv já puxa ctgan como dependência)
+
+# Utilitários (dependências internas de ctgan/sdv, instaladas automaticamente)
+# tqdm, torch, rdt, copulas — não precisam ser listadas separadamente
