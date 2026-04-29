@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(subscriber CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(vsomeip3 REQUIRED)
+find_package(Threads REQUIRED)
+add_executable(subscriber src/subscriber.cpp)
+target_link_libraries(subscriber PRIVATE vsomeip3 Threads::Threads)
