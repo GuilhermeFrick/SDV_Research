@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>SDV SOME/IP — Telemetria</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; }
+
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header .badge {
+    font-size: 0.75rem;
+    background: #238636;
+    border-radius: 12px;
+    padding: 2px 10px;
+  }
+  #status { margin-left: auto; font-size: 0.8rem; color: #8b949e; }
+  #dot { display: inline-block; width: 8px; height: 8px;
+         border-radius: 50%; background: #3fb950; margin-right: 6px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 20px;
+  }
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .card h2 { font-size: 0.85rem; color: #8b949e; margin-bottom: 14px;
+             text-transform: uppercase; letter-spacing: .05em; }
+  canvas { width: 100% !important; }
+
+  .table-wrap { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { color: #8b949e; font-weight: 500; padding: 8px 12px;
+       text-align: left; border-bottom: 1px solid #30363d; }
+  td { padding: 8px 12px; border-bottom: 1px solid #21262d; }
+  tr:hover td { background: #1c2128; }
+  .dot-role { display: inline-block; width: 8px; height: 8px;
+              border-radius: 50%; margin-right: 6px; }
+  .tag {
+    display: inline-block; font-size: 0.7rem; padding: 1px 7px;
+    border-radius: 10px; margin-left: 6px;
+  }
+  .pub { background: #1f4e2a; color: #3fb950; }
+  .sub { background: #1a3a5c; color: #58a6ff; }
+
+  .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.4rem">🚗</span>
+  <h1>SDV SOME/IP — Live Telemetry</h1>
+  <span class="badge">vSomeIP</span>
+  <span id="status"><span id="dot"></span>Conectando...</span>
+</header>
+
+<div class="grid">
+  <!-- Gráfico de barras: pacotes/seg -->
+  <div class="card">
+    <h2>Pacotes / segundo</h2>
+    <canvas id="barChart" height="220"></canvas>
+  </div>
+
+  <!-- Gráfico de linhas: histórico 60s -->
+  <div class="card">
+    <h2>Histórico — últimos 60 s</h2>
+    <canvas id="lineChart" height="220"></canvas>
+  </div>
+
+  <!-- Tabela de stats -->
+  <div class="card table-wrap">
+    <h2>Status dos ECUs</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ECU</th>
+          <th>Papel</th>
+          <th>Total de pacotes</th>
+          <th>Pacotes / seg</th>
+          <th>Último payload</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const socket = io();
+const statusEl = document.getElementById('status');
+const dotEl    = document.getElementById('dot');
+
+// ── Bar chart ────────────────────────────────────────────────────────────────
+const barCtx = document.getElementById('barChart').getContext('2d');
+const barChart = new Chart(barCtx, {
+  type: 'bar',
+  data: { labels: [], datasets: [{ label: 'pkt/s', data: [],
+    backgroundColor: [], borderRadius: 6, borderWidth: 0 }] },
+  options: {
+    responsive: true, animation: { duration: 400 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } },
+      y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' },
+           beginAtZero: true }
+    }
+  }
+});
+
+// ── Line chart ───────────────────────────────────────────────────────────────
+const lineCtx = document.getElementById('lineChart').getContext('2d');
+const lineChart = new Chart(lineCtx, {
+  type: 'line',
+  data: { labels: Array.from({length: 60}, (_, i) => `-${60-i}s`), datasets: [] },
+  options: {
+    responsive: true, animation: { duration: 200 },
+    plugins: { legend: { labels: { color: '#8b949e', boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 8 } },
+      y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' }, beginAtZero: true }
+    }
+  }
+});
+
+const lineDatasets = {};
+
+// ── Atualiza tudo ────────────────────────────────────────────────────────────
+socket.on('metrics', (data) => {
+  const names   = Object.keys(data);
+  const labels  = names.map(n => data[n].label);
+  const perSecs = names.map(n => data[n].per_sec);
+  const colors  = names.map(n => data[n].color);
+
+  // Bar chart
+  barChart.data.labels = labels;
+  barChart.data.datasets[0].data = perSecs;
+  barChart.data.datasets[0].backgroundColor = colors;
+  barChart.update();
+
+  // Line chart — somente publishers para não poluir
+  names.forEach(name => {
+    const d = data[name];
+    if (d.role !== 'publisher') return;
+    if (!lineDatasets[name]) {
+      const ds = {
+        label: d.label,
+        data: d.history,
+        borderColor: d.color,
+        backgroundColor: d.color + '22',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.4,
+      };
+      lineDatasets[name] = ds;
+      lineChart.data.datasets.push(ds);
+    } else {
+      lineDatasets[name].data = d.history;
+    }
+  });
+  lineChart.update();
+
+  // Tabela
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = names.map(name => {
+    const d = data[name];
+    const roleTag = d.role === 'publisher'
+      ? '<span class="tag pub">publisher</span>'
+      : '<span class="tag sub">subscriber</span>';
+    return `<tr>
+      <td><span class="dot-role" style="background:${d.color}"></span>${d.label}</td>
+      <td>${roleTag}</td>
+      <td>${d.total.toLocaleString()}</td>
+      <td><b>${d.per_sec}</b></td>
+      <td style="color:#8b949e;font-size:0.8rem">${d.last_payload}</td>
+    </tr>`;
+  }).join('');
+});
+
+socket.on('connect',    () => { dotEl.style.background='#3fb950'; statusEl.innerHTML='<span id="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px"></span>Conectado'; });
+socket.on('disconnect', () => { dotEl.style.background='#f85149'; statusEl.textContent='Desconectado'; });
+</script>
+</body>
+</html>

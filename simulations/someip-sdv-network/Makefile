@@ -19,6 +19,10 @@ logs-gps:
 logs-consumer:
 	docker compose logs -f ecu-consumer
 
+dashboard:
+	@echo "Dashboard disponivel em http://localhost:5000"
+	@open http://localhost:5000 2>/dev/null || start http://localhost:5000 2>/dev/null || true
+
 captures:
 	@ls -lh ids_monitor/captures/ 2>/dev/null || echo "Nenhuma captura ainda."
 

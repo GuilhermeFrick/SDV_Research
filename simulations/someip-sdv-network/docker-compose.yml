@@ -164,6 +164,20 @@ services:
 
 # ── IDS Monitor ───────────────────────────────────────────────────────────────
 
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    hostname: dashboard
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.98
+    depends_on: [ecu-gps, ecu-imu, ecu-vde]
+    restart: unless-stopped
+
   ids-monitor:
     build: ./ids_monitor
     container_name: ids-monitor
