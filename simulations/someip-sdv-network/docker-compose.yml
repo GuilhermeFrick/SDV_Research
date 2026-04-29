@@ -1,0 +1,178 @@
+version: "3.9"
+
+# Reprodução da rede SDV simulada de Kim et al. (2026) — Seção 4.1 / Figura 2
+#
+# Publishers  (data providers): ecu-gps, ecu-imu, ecu-vde
+# Subscribers (consumers)     : ecu-adas, ecu-clu, ecu-nav, ecu-pt, ecu-ste, ecu-tel
+# Monitor                     : ids-monitor (captura PCAP passiva)
+#
+# Subscrições (Figura 2):
+#   ADAS ← VDE        CLU ← GPS       NAV ← GPS
+#   PT   ← VDE        STE ← IMU       TEL ← GPS + IMU
+
+networks:
+  vehicle-bus:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+# ── Publishers ────────────────────────────────────────────────────────────────
+
+services:
+  ecu-gps:
+    build: ./ecu_gps
+    container_name: ecu-gps
+    hostname: ecu-gps
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.10
+    environment:
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_gps.json
+      - VSOMEIP_APPLICATION_NAME=GPS_Service
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    restart: unless-stopped
+
+  ecu-imu:
+    build: ./ecu_imu
+    container_name: ecu-imu
+    hostname: ecu-imu
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.11
+    environment:
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_imu.json
+      - VSOMEIP_APPLICATION_NAME=IMU_Service
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    restart: unless-stopped
+
+  ecu-vde:
+    build: ./ecu_vde
+    container_name: ecu-vde
+    hostname: ecu-vde
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.12
+    environment:
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_vde.json
+      - VSOMEIP_APPLICATION_NAME=VDE_Service
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    restart: unless-stopped
+
+# ── Subscribers ───────────────────────────────────────────────────────────────
+
+  ecu-adas:
+    build: ./ecu_subscriber
+    container_name: ecu-adas
+    hostname: ecu-adas
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.20
+    environment:
+      - ECU_NAME=ADAS
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_adas.json
+      - VSOMEIP_APPLICATION_NAME=ADAS
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    depends_on: [ecu-vde]
+    restart: unless-stopped
+
+  ecu-clu:
+    build: ./ecu_subscriber
+    container_name: ecu-clu
+    hostname: ecu-clu
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.21
+    environment:
+      - ECU_NAME=CLU
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_clu.json
+      - VSOMEIP_APPLICATION_NAME=CLU
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    depends_on: [ecu-gps]
+    restart: unless-stopped
+
+  ecu-nav:
+    build: ./ecu_subscriber
+    container_name: ecu-nav
+    hostname: ecu-nav
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.22
+    environment:
+      - ECU_NAME=NAV
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_nav.json
+      - VSOMEIP_APPLICATION_NAME=NAV
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    depends_on: [ecu-gps]
+    restart: unless-stopped
+
+  ecu-pt:
+    build: ./ecu_subscriber
+    container_name: ecu-pt
+    hostname: ecu-pt
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.23
+    environment:
+      - ECU_NAME=PT
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_pt.json
+      - VSOMEIP_APPLICATION_NAME=PT
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    depends_on: [ecu-vde]
+    restart: unless-stopped
+
+  ecu-ste:
+    build: ./ecu_subscriber
+    container_name: ecu-ste
+    hostname: ecu-ste
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.24
+    environment:
+      - ECU_NAME=STE
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_ste.json
+      - VSOMEIP_APPLICATION_NAME=STE
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    depends_on: [ecu-imu]
+    restart: unless-stopped
+
+  ecu-tel:
+    build: ./ecu_subscriber
+    container_name: ecu-tel
+    hostname: ecu-tel
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.25
+    environment:
+      - ECU_NAME=TEL
+      - VSOMEIP_CONFIGURATION=/etc/vsomeip/vsomeip_tel.json
+      - VSOMEIP_APPLICATION_NAME=TEL
+    volumes:
+      - ./config:/etc/vsomeip:ro
+    depends_on: [ecu-gps, ecu-imu]
+    restart: unless-stopped
+
+# ── IDS Monitor ───────────────────────────────────────────────────────────────
+
+  ids-monitor:
+    build: ./ids_monitor
+    container_name: ids-monitor
+    hostname: ids-monitor
+    networks:
+      vehicle-bus:
+        ipv4_address: 172.30.0.99
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./ids_monitor/captures:/captures
+    restart: unless-stopped
