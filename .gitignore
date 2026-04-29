@@ -15,3 +15,19 @@ __pycache__/
 
 C:/Mestrado/SDV_Research/data/parsed_packets.csv
 
+data/dataset_ism_xgboost/dataset_ism_xgboost/tr_te_sets/X_test.npy
+data/dataset_ism_xgboost/dataset_ism_xgboost/tr_te_sets/X_train.npy
+data/dataset_ism_xgboost/dataset_ism_xgboost/tr_te_sets/y_test.npy
+data/dataset_ism_xgboost/dataset_ism_xgboost/tr_te_sets/y_train.npy
+experiments/notebooks/data/tr_te_sets.tar
+experiments/notebooks/data/X_test.npy
+experiments/notebooks/data/X_train.npy
+experiments/notebooks/data/y_test.npy
+experiments/notebooks/data/y_train.npy
+experiments/notebooks/data/pcap/benign_traffic.pcap
+experiments/notebooks/data/pcap/dos_noti_flood.pcap
+experiments/notebooks/data/pcap/fuzzy_sd_offer_rand_noti(1).pcap
+experiments/notebooks/data/pcap/fuzzy_sd_offer_rand_noti(2).pcap
+experiments/notebooks/data/pcap/fuzzy_sd_offer_rand_noti(3).pcap
+experiments/notebooks/data/pcap/mitm_multi_attacker.pcap
+experiments/notebooks/data/pcap/mitm_single_attacker.pcap

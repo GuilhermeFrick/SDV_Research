@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python experiments/files/01_parse_pcap.py --pcap-dir \"C:\\\\Mestrado\\\\SDV_Research\\\\data\\\\dataset_ism_xgboost\" --output \"C:\\\\Mestrado\\\\SDV_Research\\\\data\\\\parsed_packets.csv\")"
+      "Bash(python experiments/files/01_parse_pcap.py --pcap-dir \"C:\\\\Mestrado\\\\SDV_Research\\\\data\\\\dataset_ism_xgboost\" --output \"C:\\\\Mestrado\\\\SDV_Research\\\\data\\\\parsed_packets.csv\")",
+      "Bash(python -m pip install -q pymupdf)",
+      "Bash(python -c ' *)",
+      "Bash(python -m pip show xgboost lightgbm scikit-learn numpy pandas matplotlib ctgan sdv)",
+      "Bash(python)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 add_spw_cell.py)"
     ]
   }
 }
