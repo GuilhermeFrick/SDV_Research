@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(vde_service CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(vsomeip3 REQUIRED)
+find_package(Threads REQUIRED)
+add_executable(vde_service src/vde_service.cpp)
+target_link_libraries(vde_service PRIVATE vsomeip3 Threads::Threads)
