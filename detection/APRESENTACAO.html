@@ -110,6 +110,18 @@
   .callout-orange { background: var(--orange-bg); border-left: 3px solid var(--orange); }
   .callout strong { color: var(--text); }
 
+  /* ── Attack description box ── */
+  .atk-desc { background: var(--gray-1); border: 1px solid var(--gray-2);
+              border-radius: 10px; padding: .85rem 1rem; margin-top: .5rem; }
+  .atk-desc h4 { font-size: .8rem; font-weight: 700; color: var(--blue-dark);
+                 text-transform: uppercase; letter-spacing: .06em;
+                 margin-bottom: .45rem; }
+  .atk-desc p  { font-size: .82rem; color: var(--gray-5); line-height: 1.65;
+                 margin-bottom: .35rem; }
+  .atk-desc p:last-child { margin-bottom: 0; }
+  .atk-desc .hi { color: var(--blue-dark); font-weight: 600; }
+  .atk-desc .hi-red { color: var(--red); font-weight: 600; }
+
   /* ── Metrics ── */
   .metric-row { display: flex; gap: .7rem; flex-wrap: wrap; margin-bottom: .8rem; }
   .metric { background: var(--gray-1); border: 1px solid var(--gray-2);
@@ -608,6 +620,13 @@
           <div class="metric"><div class="val val-good">13</div><div class="lbl">FN</div></div>
           <div class="metric"><div class="val val-good">≈1,00</div><div class="lbl">AUC</div></div>
         </div>
+
+        <div class="atk-desc">
+          <h4>Como funciona o ataque</h4>
+          <p>O atacante <span class="hi-red">172.18.0.11</span> entra em <em>tight loop</em> e inunda a rede com milhares de mensagens SOME/IP por segundo, todas direcionadas ao serviço ADAS (<span class="hi">svc=0x1001, meth=0x0001, msg=NOTIFICATION</span>). Em condições normais, o servidor publica notificações ADAS periodicamente — tipicamente uma a cada dezenas ou centenas de milissegundos. O atacante reproduz esse mesmo pacote continuamente, com <strong>payload idêntico</strong> a cada transmissão.</p>
+          <p>O efeito imediato é a saturação do buffer de recepção das ECUs subscribers: elas ficam processando pacotes falsos em vez de eventos legítimos, o que configura uma negação de serviço (<em>Denial of Service</em>) no plano de dados veicular.</p>
+          <p>A <span class="hi">assinatura chave</span> capturada pelo classificador é a combinação de taxa de pacotes anormalmente alta (<strong>f17</strong>) com diversidade de payload zero (<strong>f18≈0</strong>) e tamanho de payload absolutamente fixo (<strong>f15</strong>): o atacante repete o mesmo payload sem nenhuma variação, comportamento impossível num publicador legítimo.</p>
+        </div>
       </div>
       <div>
         <h3>Importância das features</h3>
@@ -696,6 +715,14 @@
           <div class="metric"><div class="val val-warn">330</div><div class="lbl">FP</div></div>
           <div class="metric"><div class="val val-good">74</div><div class="lbl">FN</div></div>
           <div class="metric"><div class="val val-good">0,9999</div><div class="lbl">AUC</div></div>
+        </div>
+
+        <div class="atk-desc">
+          <h4>Como funciona o ataque</h4>
+          <p><em>Fuzzing</em> é uma técnica de teste de segurança que injeta entradas aleatórias ou inesperadas em um sistema para provocar comportamentos anômalos, crashes ou vazamentos de informação. Nos ataques capturados, os atacantes <span class="hi-red">.12</span> e <span class="hi-red">.17</span> geram um <strong>payload diferente em cada pacote</strong> — exatamente o oposto do DoS.</p>
+          <p><strong>Componente A — SD Flooding:</strong> o atacante inunda o canal de Service Discovery (<span class="hi">svc=0xFFFF</span>) com pacotes de 1332 bytes de conteúdo aleatório. O objetivo é corromper o mecanismo de registro e descoberta de serviços, potencialmente levando ECUs a perderem referências de serviços legítimos.</p>
+          <p><strong>Componente B — ADAS Random Payload:</strong> o atacante injeta notificações no serviço ADAS (<span class="hi">svc=0x1001</span>) com payloads gerados aleatoriamente, tentando provocar comportamentos inesperados nos sistemas que processam esses dados — como módulos de frenagem autônoma ou controle de trajetória.</p>
+          <p>A <span class="hi">assinatura chave</span> é a alta <strong>distância de Hamming</strong> entre payloads consecutivos (<strong>f08≈1</strong>): cada pacote muda todos os bytes, algo que nenhum publicador legítimo faz.</p>
         </div>
       </div>
       <div>
@@ -805,6 +832,14 @@
           <div class="metric"><div class="val val-warn">349</div><div class="lbl">FN</div></div>
           <div class="metric"><div class="val val-good">1,0000</div><div class="lbl">AUC</div></div>
         </div>
+
+        <div class="atk-desc">
+          <h4>Como funciona o ataque</h4>
+          <p>Dois atacantes coordenados montam uma operação de Man-in-the-Middle em três fases simultâneas.</p>
+          <p><strong>Componente A — Event Relay (<span class="hi-red">.14</span>):</strong> o atacante se inscreve no serviço ADAS legítimo (<span class="hi">svc=0x1001</span>), recebe os eventos reais e os retransmite através de um serviço proxy próprio (<span class="hi">svc=0x100B, instance=0x000B</span>). Os subscribers passam a receber dados via esse serviço intermediário controlado pelo atacante, que pode alterar ou atrasar notificações ADAS antes de repassá-las.</p>
+          <p><strong>Componente B — SD Spoofing (<span class="hi-red">.15</span>):</strong> o atacante forja o endereço IP de origem, enviando mensagens SOME/IP-SD com <span class="hi">IP.src = 172.18.0.10</span> (o servidor legítimo). Essas mensagens de <em>withdraw</em> (TTL=0) convencem os subscribers de que o servidor ADAS foi desativado, forçando-os a buscar outra fonte — o relay do atacante .14.</p>
+          <p><strong>Componente C — ADAS Injection:</strong> após o withdraw, o atacante .14 também injeta notificações forjadas diretamente como <span class="hi">svc=0x1001</span>, assumindo completamente a identidade do servidor legítimo.</p>
+        </div>
       </div>
       <div>
         <h3>Importância das features</h3>
@@ -895,6 +930,14 @@
           <div class="metric"><div class="val val-good">61</div><div class="lbl">FP</div></div>
           <div class="metric"><div class="val val-good">143</div><div class="lbl">FN</div></div>
           <div class="metric"><div class="val val-good">1,0000</div><div class="lbl">AUC</div></div>
+        </div>
+
+        <div class="atk-desc">
+          <h4>Como funciona o ataque</h4>
+          <p>Um único atacante (<span class="hi-red">172.18.0.13</span>) executa o MitM em duas fases sequenciais.</p>
+          <p><strong>Componente A — SD Withdraw:</strong> o atacante envia mensagens SOME/IP-SD do tipo <em>Offer Service</em> com <span class="hi">TTL=0</span>, o que equivale a um <em>Stop Offer</em> — anunciando que serviços estão sendo encerrados. Essas mensagens são enviadas continuamente, forçando todos os subscribers a se desconectarem do servidor ADAS legítimo (<span class="hi">.10</span>). ECUs legítimas não retiram serviços abruptamente e de forma repetida — este padrão é a anomalia detectada pela feature <strong>f19_is_sd</strong> com 92,9% de importância.</p>
+          <p><strong>Componente B — ADAS Injection:</strong> com os subscribers agora sem fonte legítima, o atacante passa a injetar suas próprias notificações ADAS (<span class="hi">svc=0x1001, meth=0x0001</span>), assumindo o papel do servidor. Os sistemas veiculares que dependem desses dados — como módulos de assistência à condução — passam a receber informações forjadas, sem qualquer indicação visual de falha.</p>
+          <p>É o ataque mais silencioso do dataset: não gera flood e mantém a aparência de operação normal para quem não monitora o Service Discovery.</p>
         </div>
       </div>
       <div>
