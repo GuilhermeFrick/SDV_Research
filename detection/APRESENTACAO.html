@@ -496,33 +496,104 @@
       </svg>
     </div>
 
-    <div class="cols">
-      <div class="card">
-        <h3>Estratégia: binário por classe → multiclasse</h3>
-        <p style="margin-bottom:.5rem;">Cada tipo de ataque é estudado isoladamente primeiro — permite entender a assinatura comportamental individual e validar os labels antes de combinar.</p>
-        <div class="flow">
-          <div class="flow-box done">DoS</div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-box done">Fuzzy</div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-box done">MITM ×2</div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-box next">6 classes</div>
-        </div>
+    <div class="card" style="margin-bottom:.6rem;">
+      <h3>Estratégia: binário por classe → multiclasse</h3>
+      <p style="margin-bottom:.5rem;">Cada tipo de ataque é estudado isoladamente primeiro — permite entender a assinatura comportamental individual e validar os labels antes de combinar.</p>
+      <div class="flow">
+        <div class="flow-box done">DoS</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box done">Fuzzy</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box done">MITM ×2</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box next">6 classes</div>
       </div>
-      <div class="card">
-        <h3>Features comportamentais (sem bytes brutos)</h3>
-        <ul class="pts">
-          <li><strong>f01</strong> — intervalo entre pacotes do mesmo fluxo</li>
-          <li><strong>f08</strong> — distância de Hamming entre payloads consecutivos</li>
-          <li><strong>f13</strong> — fração dos últimos 5 payloads idênticos</li>
-          <li><strong>f15</strong> — tamanho do payload SOME/IP</li>
-          <li><strong>f17</strong> — taxa de pacotes por IP (janela 1000 pkts)</li>
-          <li><strong>f18</strong> — diversidade de payloads (janela 1000)</li>
-          <li><strong>f19</strong> — is_sd: svc=0xFFFF (SOME/IP-SD)</li>
-          <li><strong>f21</strong> — is_relay_service: svc=0x100B (MITM relay)</li>
-        </ul>
-      </div>
+    </div>
+
+    <div style="margin-top:.6rem;">
+      <h3 style="color:var(--blue-dark); font-size:.9rem; margin-bottom:.6rem; border-bottom:2px solid var(--blue-pale); padding-bottom:.3rem;">
+        Catálogo completo de features — 12 variáveis comportamentais (sem bytes brutos)
+      </h3>
+      <table class="t" style="font-size:.78rem;">
+        <tr>
+          <th scope="col" style="width:5%">ID</th>
+          <th scope="col" style="width:28%">Nome</th>
+          <th scope="col" style="width:42%">O que mede</th>
+          <th scope="col" style="width:25%">Principal relevância</th>
+        </tr>
+        <tr>
+          <td><strong>f01</strong></td>
+          <td>ip_time_interval</td>
+          <td>Intervalo de tempo entre pacotes consecutivos do mesmo src_ip</td>
+          <td>Base de todos os classificadores</td>
+        </tr>
+        <tr>
+          <td><strong>f08</strong></td>
+          <td>someip_payload_change</td>
+          <td>Distância de Hamming normalizada entre payloads consecutivos (0 = idêntico, 1 = completamente diferente)</td>
+          <td><span class="pill pill-orange">Fuzzy</span> dominante (51,3%)</td>
+        </tr>
+        <tr>
+          <td><strong>f11</strong></td>
+          <td>ip_length_change</td>
+          <td>Variação absoluta do comprimento do pacote IP entre transmissões consecutivas do mesmo IP</td>
+          <td>Complementar em todos</td>
+        </tr>
+        <tr>
+          <td><strong>f12</strong></td>
+          <td>tcpudp_length_change</td>
+          <td>Variação absoluta do comprimento do segmento TCP/UDP entre transmissões consecutivas</td>
+          <td>Complementar em todos</td>
+        </tr>
+        <tr>
+          <td><strong>f13</strong></td>
+          <td>payload_repeat_rate</td>
+          <td>Fração dos últimos 5 payloads do mesmo src_ip que são idênticos ao payload atual (janela deslizante)</td>
+          <td><span class="pill pill-red">DoS</span> — payload repetido ≈ 1,0</td>
+        </tr>
+        <tr>
+          <td><strong>f15</strong></td>
+          <td>someip_payload_len</td>
+          <td>Tamanho em bytes do payload SOME/IP (após os 8 bytes de cabeçalho fixo)</td>
+          <td><span class="pill pill-red">DoS</span> (58,7%) · <span class="pill pill-purple">MITM Multi</span> (28,7%)</td>
+        </tr>
+        <tr>
+          <td><strong>f16</strong></td>
+          <td>tcpudp_len</td>
+          <td>Comprimento total do segmento de transporte (TCP ou UDP), incluindo cabeçalho + payload</td>
+          <td>Complementar em todos</td>
+        </tr>
+        <tr>
+          <td><strong>f17</strong></td>
+          <td>src_packet_rate</td>
+          <td>Taxa de pacotes por segundo do src_ip, calculada sobre uma janela deslizante de 1.000 pacotes</td>
+          <td><span class="pill pill-red">DoS</span> e <span class="pill pill-orange">Fuzzy</span> — flood</td>
+        </tr>
+        <tr>
+          <td><strong>f18</strong></td>
+          <td>src_payload_diversity</td>
+          <td>Proporção de payloads únicos emitidos pelo src_ip na janela de 1.000 pacotes (0 = todos iguais, 1 = todos únicos)</td>
+          <td><span class="pill pill-red">DoS</span> ≈ 0 · <span class="pill pill-orange">Fuzzy</span> ≈ 1</td>
+        </tr>
+        <tr>
+          <td><strong>f19</strong></td>
+          <td>is_sd</td>
+          <td>Flag booleana: 1 se o pacote usa service_id = 0xFFFF (porta exclusiva do SOME/IP Service Discovery)</td>
+          <td><span class="pill pill-purple">MITM Single</span> dominante (92,9%)</td>
+        </tr>
+        <tr>
+          <td><strong>f20</strong></td>
+          <td>src_service_diversity</td>
+          <td>Número de service_ids distintos usados pelo src_ip na janela de 1.000 pacotes</td>
+          <td><span class="pill pill-purple">MITM</span> — relay usa ID fixo</td>
+        </tr>
+        <tr>
+          <td><strong>f21</strong></td>
+          <td>is_relay_service</td>
+          <td>Flag booleana: 1 se service_id = 0x100B (serviço proxy criado exclusivamente pelo atacante MITM Multi)</td>
+          <td><span class="pill pill-purple">MITM Multi</span> dominante (69,7%)</td>
+        </tr>
+      </table>
     </div>
   </div>
 </div>
