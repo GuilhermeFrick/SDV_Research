@@ -392,18 +392,15 @@
     <div class="cols">
       <div class="card card-blue">
         <h3>Dataset Kim et al. 2026 — Atribuição por conteúdo SOME/IP</h3>
-        <p style="margin-bottom:.5rem;">Kim fornece PCAPs com metadados de simulação (IPs dos atacantes, parâmetros do ataque). A atribuição de label é feita <strong>por conteúdo dos campos SOME/IP</strong>, não pelo IP de origem.</p>
-        <p style="margin-bottom:.6rem;"><strong>Por que não usar o IP?</strong> O tráfego do nó atacante também contém pacotes legítimos (subscriptions SD, respostas normais). Rotular por IP incluiria esses pacotes como ataque — gerando <em>falsos positivos no treino</em>. Além disso, o MITM Multi usa IP forjado (172.18.0.10), que se fosse rotulado por IP acusaria o servidor legítimo.</p>
+        <p style="margin-bottom:.5rem;">Kim fornece PCAPs com metadados de simulação (IPs dos atacantes, parâmetros do ataque). A atribuição de label é feita <strong>por conteúdo dos campos SOME/IP</strong>, não pelo IP de origem — seguindo a especificação dos autores.</p>
+        <p style="margin-bottom:.6rem;">O critério é baseado em conteúdo porque o endereço IP não é suficiente: o nó atacante também gera tráfego legítimo durante a captura (subscriptions SD, respostas normais) — usar o IP rotularia esses pacotes como ataque incorretamente. Além disso, no MITM Multi, o atacante forja o IP de origem (172.18.0.10 — o servidor legítimo), tornando o IP inútil como identificador.</p>
         <table class="t" style="font-size:11px;">
           <tr><th scope="col">Ataque</th><th scope="col">Critério de atribuição</th></tr>
           <tr><td>DoS</td><td><code>src=.11 + svc=0x1001 + meth=0x0001 + msg=NOTIF</code></td></tr>
           <tr><td>Fuzzy</td><td><code>(is_sd + msg=NOTIF) OR (svc=0x1001 + meth=0x0001)</code></td></tr>
-          <tr><td>MITM Multi</td><td><code>svc=0x100B</code> ou <code>SD withdraw com IP forjado</code></td></tr>
+          <tr><td>MITM Multi</td><td><code>svc=0x100B</code> ou <code>SD Stop Offer com IP forjado</code></td></tr>
           <tr><td>MITM Single</td><td><code>is_sd + msg=NOTIF</code> ou <code>svc=0x1001 + meth=0x0001</code></td></tr>
         </table>
-        <div class="callout callout-orange" style="margin-top:.7rem; font-size:.81rem;">
-          <strong>Impacto da correção:</strong> DoS passou de 306k para 69k pacotes de ataque ao usar critério por conteúdo. MITM recuperou 167k pacotes com IP forjado que seriam invisíveis com labeling por IP.
-        </div>
       </div>
       <div class="card">
         <h3>Dataset Alkhatib et al. 2021 — Labels pré-definidos em CSV</h3>
@@ -747,7 +744,7 @@
 
     <div class="cols">
       <div class="callout callout-orange">
-        <strong>Dataset desbalanceado:</strong> em todos os PCAPs, pacotes benignos superam os de ataque. O DoS tem proporção 57:1 com content-labeling (era 12:1 com labeling por IP — a diferença mostra o volume de tráfego legítimo do atacante que foi corretamente excluído do label de ataque).
+        <strong>Dataset desbalanceado:</strong> em todos os PCAPs, pacotes benignos superam os de ataque. O DoS tem a maior proporção (57:1), enquanto o MITM Single é o mais balanceado (5:1). O desbalanceamento reflete a realidade: ataques são eventos raros em capturas de tráfego veicular.
       </div>
       <div class="callout callout-blue">
         <strong>Combinação para treino binário:</strong> cada classificador usa <code>benign_traffic.csv</code> + o(s) PCAP(s) do ataque correspondente. O split 50/50 estratificado garante que a proporção de classes é mantida em treino e teste.
@@ -1012,7 +1009,7 @@
             <text x="330" y="100" text-anchor="middle" fill="#3d4a66" font-size="7">svc=0x100B</text>
             <text x="330" y="118" text-anchor="middle" fill="#1a7a4a" font-size="8" font-weight="700">✓</text>
 
-            <text x="180" y="182" text-anchor="middle" fill="#b52020" font-size="8" font-weight="700">⚠ Labeling por IP falharia aqui: .15 usa IP.src=.10 (servidor legítimo) forjado</text>
+            <text x="180" y="182" text-anchor="middle" fill="#b52020" font-size="8" font-weight="700">⚠ .15 usa IP.src=.10 (servidor legítimo) forjado — label por conteúdo SOME/IP</text>
           </svg>
         </div>
         <div class="metric-row">
@@ -1315,7 +1312,7 @@
       <div>
         <h2>O que foi demonstrado</h2>
         <ul class="pts" style="margin-bottom:.8rem;">
-          <li><strong>Atribuição de label por conteúdo</strong> (spec Kim 2026) é fundamental — o labeling por IP gerava 77% de falsos positivos no DoS e perdia 167k pacotes de MITM com IP forjado.</li>
+          <li><strong>Atribuição de label por conteúdo SOME/IP</strong> (spec Kim 2026) é a abordagem correta: o IP de origem é insuficiente pois o nó atacante também gera tráfego legítimo, e ataques com IP forjado (MITM Multi) seriam invisíveis a qualquer critério baseado em endereço.</li>
           <li><strong>Cada ataque tem assinatura própria</strong>: DoS = repetição; Fuzzy = aleatoriedade; MITM Multi = serviço relay; MITM Single = SD Withdraw.</li>
           <li><strong>Features comportamentais</strong> (sem bytes brutos) são suficientes para F1 ≥ 0,997 em todos os 4 classificadores.</li>
           <li><strong>IP-agnóstico</strong>: o modelo detecta o comportamento, não o endereço. Novos atacantes com outros IPs usando a mesma técnica serão detectados.</li>
