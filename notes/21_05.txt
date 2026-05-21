@@ -1,0 +1,6 @@
+Proximos objetivos para 04/06:
+
+- dataset misto a partir do real
+- avaliar modelo unificado para classificação multi-classe
+- avaliar o fluxo misto que será gerado, no classificado binário de cada classe
+- matriz de confusão multi-classe 
