@@ -993,7 +993,7 @@
             <rect x="110" y="115" width="90" height="45" rx="6" fill="#f0ebff" stroke="#5a2fa0" stroke-width="1.8"/>
             <text x="155" y="132" text-anchor="middle" fill="#5a2fa0" font-size="9" font-weight="700">.15 spoof</text>
             <text x="155" y="146" text-anchor="middle" fill="#3d4a66" font-size="8">IP.src=.10 FORJADO</text>
-            <text x="155" y="156" text-anchor="middle" fill="#b52020" font-size="8" font-weight="700">SD withdraw ⚠</text>
+            <text x="155" y="156" text-anchor="middle" fill="#b52020" font-size="8" font-weight="700">Stop Offer forjado ⚠</text>
 
             <!-- Arrows from attackers -->
             <line x1="200" y1="64" x2="245" y2="90" stroke="#5a2fa0" stroke-width="1.5" marker-end="url(#mp)"/>
@@ -1026,8 +1026,8 @@
           <h4>Como funciona o ataque</h4>
           <p>Dois atacantes coordenados montam uma operação de Man-in-the-Middle em três fases simultâneas.</p>
           <p><strong>Componente A — Event Relay (<span class="hi-red">.14</span>):</strong> o atacante se inscreve no serviço ADAS legítimo (<span class="hi">svc=0x1001</span>), recebe os eventos reais e os retransmite através de um serviço proxy próprio (<span class="hi">svc=0x100B, instance=0x000B</span>). Os subscribers passam a receber dados via esse serviço intermediário controlado pelo atacante, que pode alterar ou atrasar notificações ADAS antes de repassá-las.</p>
-          <p><strong>Componente B — SD Spoofing (<span class="hi-red">.15</span>):</strong> o atacante forja o endereço IP de origem, enviando mensagens SOME/IP-SD com <span class="hi">IP.src = 172.18.0.10</span> (o servidor legítimo). Essas mensagens de <em>withdraw</em> (TTL=0) convencem os subscribers de que o servidor ADAS foi desativado, forçando-os a buscar outra fonte — o relay do atacante .14.</p>
-          <p><strong>Componente C — ADAS Injection:</strong> após o withdraw, o atacante .14 também injeta notificações forjadas diretamente como <span class="hi">svc=0x1001</span>, assumindo completamente a identidade do servidor legítimo.</p>
+          <p><strong>Componente B — SD Spoofing (<span class="hi-red">.15</span>):</strong> o atacante forja o endereço IP de origem, enviando mensagens SOME/IP-SD com <span class="hi">IP.src = 172.18.0.10</span> (o servidor legítimo). No SOME/IP-SD, um servidor anuncia sua presença com <em>Offer Service</em> (TTL &gt; 0); quando o serviço é encerrado, envia <em>Stop Offer</em> — a mesma mensagem com <span class="hi">TTL = 0</span>, sinalizando que o serviço não está mais disponível. O atacante envia esse <em>Stop Offer</em> falso com IP forjado, fazendo os subscribers acreditarem que o servidor ADAS legítimo foi desligado e levando-os a procurar outra fonte — o relay do atacante .14.</p>
+          <p><strong>Componente C — ADAS Injection:</strong> com os subscribers "à deriva", o atacante .14 também injeta notificações forjadas diretamente como <span class="hi">svc=0x1001</span>, assumindo completamente a identidade do servidor legítimo.</p>
         </div>
       </div>
       <div>
