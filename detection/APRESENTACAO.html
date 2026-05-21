@@ -110,6 +110,14 @@
   .callout-orange { background: var(--orange-bg); border-left: 3px solid var(--orange); }
   .callout strong { color: var(--text); }
 
+  /* ── Term definition strip ── */
+  .term-box { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:.7rem; }
+  .term-def { display:flex; align-items:flex-start; gap:.5rem; background:var(--blue-bg);
+              border-left:3px solid var(--blue-mid); border-radius:0 8px 8px 0;
+              padding:.5rem .8rem; font-size:.8rem; line-height:1.55; flex:1; min-width:200px; }
+  .term-def .term-label { font-weight:800; color:var(--blue-dark);
+                          white-space:nowrap; margin-right:.15rem; }
+
   /* ── Attack description box ── */
   .atk-desc { background: var(--gray-1); border: 1px solid var(--gray-2);
               border-radius: 10px; padding: .85rem 1rem; margin-top: .5rem; }
@@ -225,7 +233,7 @@
   <div class="slide-header">
     <div class="title">O Protocolo SOME/IP</div>
     <div class="tag">Contexto técnico</div>
-    <div class="slide-num">2 / 13</div>
+    <div class="slide-num">2 / 14</div>
   </div>
   <div class="slide-body">
     <div class="cols col-wide">
@@ -312,7 +320,7 @@
   <div class="slide-header">
     <div class="title">O que caracteriza um ataque?</div>
     <div class="tag">Modelo de ameaça</div>
-    <div class="slide-num">3 / 13</div>
+    <div class="slide-num">3 / 14</div>
   </div>
   <div class="slide-body">
     <div class="callout callout-blue" style="margin-bottom:1rem;">
@@ -382,7 +390,7 @@
   <div class="slide-header">
     <div class="title">Atribuição de Label — Kim vs Alkhatib</div>
     <div class="tag">Ground truth · como se decide o que é ataque</div>
-    <div class="slide-num">4 / 13</div>
+    <div class="slide-num">4 / 14</div>
   </div>
   <div class="slide-body">
     <div class="callout callout-blue" style="margin-bottom:.8rem;">
@@ -427,7 +435,7 @@
   <div class="slide-header">
     <div class="title">Fluxo de Treino e Validação</div>
     <div class="tag">Pipeline completo</div>
-    <div class="slide-num">5 / 13</div>
+    <div class="slide-num">5 / 14</div>
   </div>
   <div class="slide-body">
     <div class="diag" style="margin-bottom:1rem;">
@@ -720,7 +728,7 @@
   <div class="slide-header">
     <div class="title">Dataset — Composição e Balanço de Classes</div>
     <div class="tag">Kim 2026 · Alkhatib 2021</div>
-    <div class="slide-num">6 / 13</div>
+    <div class="slide-num">6 / 14</div>
   </div>
   <div class="slide-body">
     <table class="t" style="margin-bottom:1rem;">
@@ -760,9 +768,12 @@
   <div class="slide-header">
     <div class="title">Classificador DoS — Event Notification Flooding</div>
     <div class="tag">Binário · 9 features</div>
-    <div class="slide-num">7 / 13</div>
+    <div class="slide-num">7 / 14</div>
   </div>
   <div class="slide-body">
+    <div class="term-box">
+      <div class="term-def"><span class="term-label">Flooding:</span> inundação deliberada de mensagens — o atacante envia um volume anormalmente alto de pacotes em curto intervalo, saturando buffers e CPU das ECUs receptoras. O objetivo é degradar ou impedir o processamento de mensagens legítimas (<em>Denial of Service</em>).</div>
+    </div>
     <div class="cols">
       <div>
         <div class="diag" style="margin-bottom:.8rem;">
@@ -855,9 +866,13 @@
   <div class="slide-header">
     <div class="title">Classificador Fuzzy — SD Flooding + Random ADAS Payload</div>
     <div class="tag">Binário · 10 features · sinal oposto ao DoS</div>
-    <div class="slide-num">8 / 13</div>
+    <div class="slide-num">8 / 14</div>
   </div>
   <div class="slide-body">
+    <div class="term-box">
+      <div class="term-def"><span class="term-label">Flooding:</span> inundação de pacotes para saturar a rede ou as ECUs — mesmo conceito do DoS, mas aqui com <em>payload aleatório</em> em cada mensagem. O objetivo é encontrar vulnerabilidades injetando entradas inesperadas (técnica de <em>fuzzing</em>), não apenas degradar a disponibilidade.</div>
+      <div class="term-def"><span class="term-label">Fuzzing:</span> técnica de teste de segurança que envia dados aleatórios, inválidos ou inesperados para um sistema, buscando provocar crashes, comportamentos anômalos ou vazamentos de informação. Em SOME/IP, os bytes do payload são gerados aleatoriamente a cada pacote.</div>
+    </div>
     <div class="cols">
       <div>
         <div class="diag" style="margin-bottom:.8rem;">
@@ -956,9 +971,13 @@
   <div class="slide-header">
     <div class="title">MITM Multi-Attacker — Event Relay + SD Spoofing</div>
     <div class="tag">Binário · 12 features · IP forjado</div>
-    <div class="slide-num">9 / 13</div>
+    <div class="slide-num">9 / 14</div>
   </div>
   <div class="slide-body">
+    <div class="term-box">
+      <div class="term-def"><span class="term-label">Spoofing:</span> falsificação de identidade em rede — o atacante forja o endereço IP de origem de um pacote, fazendo-o parecer vir de uma fonte legítima. Como o protocolo SOME/IP não autentica o IP de origem, os receptores aceitam a mensagem como se fosse do servidor real.</div>
+      <div class="term-def"><span class="term-label">MITM (Man-in-the-Middle):</span> o atacante se posiciona entre dois comunicantes, interceptando e/ou substituindo mensagens sem que nenhum dos lados perceba. Aqui: dois atacantes coordenados substituem o fluxo legítimo de dados ADAS por um relay controlado.</div>
+    </div>
     <div class="cols">
       <div>
         <div class="diag" style="margin-bottom:.8rem;">
@@ -1064,9 +1083,13 @@
   <div class="slide-header">
     <div class="title">MITM Single-Attacker — SD Withdraw + ADAS Injection</div>
     <div class="tag">Binário · 12 features · f19 dominante</div>
-    <div class="slide-num">10 / 13</div>
+    <div class="slide-num">10 / 14</div>
   </div>
   <div class="slide-body">
+    <div class="term-box">
+      <div class="term-def"><span class="term-label">SD Stop Offer (Withdraw):</span> mensagem do protocolo SOME/IP-SD usada para anunciar que um serviço foi encerrado. Um servidor envia <em>Offer Service</em> com <strong>TTL &gt; 0</strong> para dizer "estou disponível" e a mesma mensagem com <strong>TTL = 0</strong> para dizer "fui desligado". O atacante envia continuamente esse <em>Stop Offer</em> falso, forçando os subscribers a se desconectarem do servidor legítimo.</div>
+      <div class="term-def"><span class="term-label">ADAS Injection:</span> injeção de notificações falsas no serviço ADAS (<em>Advanced Driver-Assistance Systems</em>) — o atacante assume a identidade do servidor legítimo e passa a enviar dados fabricados para os módulos de assistência ao condutor, como controle de trajetória ou frenagem autônoma.</div>
+    </div>
     <div class="cols">
       <div>
         <div class="diag" style="margin-bottom:.8rem;">
@@ -1161,13 +1184,114 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
-     SLIDE 11 — É POSSÍVEL DISCERNIR O TIPO DE ATAQUE?
+     SLIDE 11 — FAKECLIENTID
 ═══════════════════════════════════════════════════════ -->
 <div class="slide" id="s11">
   <div class="slide-header">
+    <div class="title">Classificador FakeClientID — Rotação de Client ID em REQUESTs</div>
+    <div class="tag">Binário · 13 features · Alkhatib 2021</div>
+    <div class="slide-num">11 / 14</div>
+  </div>
+  <div class="slide-body">
+    <div class="term-box">
+      <div class="term-def"><span class="term-label">Client ID:</span> campo de 2 bytes no cabeçalho SOME/IP que identifica unicamente o cliente de uma sessão request-response. Em operação normal, cada ECU usa um <code>client_id</code> fixo por sessão — o servidor usa esse campo para rotear as respostas ao solicitante correto.</div>
+      <div class="term-def"><span class="term-label">FakeClientID:</span> o atacante rotaciona continuamente múltiplos <code>client_ids</code> falsos nas mensagens REQUEST. Isso confunde a tabela de sessões do servidor (associações IP↔client_id inválidas) e pode esgotar recursos, pois o servidor tenta manter contexto para cada ID diferente.</div>
+    </div>
+    <div class="cols">
+      <div>
+        <div class="diag" style="margin-bottom:.8rem;">
+          <svg width="360" height="160" viewBox="0 0 360 160" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="fca" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0, 7 2.5, 0 5" fill="#b52020"/>
+              </marker>
+              <marker id="fcg" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+                <polygon points="0 0, 7 2.5, 0 5" fill="#1a7a4a"/>
+              </marker>
+            </defs>
+            <!-- Attacker -->
+            <rect x="10" y="55" width="90" height="60" rx="7" fill="#fdeaea" stroke="#b52020" stroke-width="2"/>
+            <text x="55" y="76" text-anchor="middle" fill="#b52020" font-size="10" font-weight="700">Atacante</text>
+            <text x="55" y="91" text-anchor="middle" fill="#3d4a66" font-size="8">client_id=0x0A01</text>
+            <text x="55" y="103" text-anchor="middle" fill="#3d4a66" font-size="8">client_id=0x0B44</text>
+            <text x="55" y="115" text-anchor="middle" fill="#b52020" font-size="8">client_id=0xC923…</text>
+            <!-- Arrows -->
+            <line x1="100" y1="75" x2="148" y2="75" stroke="#b52020" stroke-width="1.5" marker-end="url(#fca)"/>
+            <line x1="100" y1="88" x2="148" y2="88" stroke="#b52020" stroke-width="1.5" marker-end="url(#fca)"/>
+            <line x1="100" y1="101" x2="148" y2="101" stroke="#b52020" stroke-width="1.5" marker-end="url(#fca)"/>
+            <text x="124" y="68" text-anchor="middle" fill="#b52020" font-size="8" font-weight="700">REQUESTs</text>
+            <!-- Server -->
+            <rect x="148" y="45" width="100" height="80" rx="7" fill="#fff3e0" stroke="#b05a00" stroke-width="1.5"/>
+            <text x="198" y="67" text-anchor="middle" fill="#b05a00" font-size="9" font-weight="700">Servidor SOME/IP</text>
+            <text x="198" y="82" text-anchor="middle" fill="#3d4a66" font-size="8">tabela de sessões</text>
+            <text x="198" y="95" text-anchor="middle" fill="#b52020" font-size="8">0x0A01 → ???</text>
+            <text x="198" y="108" text-anchor="middle" fill="#b52020" font-size="8">0x0B44 → ???</text>
+            <text x="198" y="121" text-anchor="middle" fill="#b52020" font-size="8">confusão ⚠</text>
+            <!-- IDS -->
+            <line x1="248" y1="85" x2="278" y2="85" stroke="#1a7a4a" stroke-width="1.5" marker-end="url(#fcg)"/>
+            <rect x="278" y="55" width="75" height="62" rx="7" fill="#dceeff" stroke="#2563a8" stroke-width="2"/>
+            <text x="315" y="76" text-anchor="middle" fill="#1a3a6b" font-size="10" font-weight="700">IDS</text>
+            <text x="315" y="90" text-anchor="middle" fill="#3d4a66" font-size="8">f22: clientid</text>
+            <text x="315" y="103" text-anchor="middle" fill="#3d4a66" font-size="8">diversity alto</text>
+            <text x="315" y="112" text-anchor="middle" fill="#1a7a4a" font-size="8" font-weight="700">✓ DETECTADO</text>
+            <text x="180" y="148" text-anchor="middle" fill="#3d4a66" font-size="8">ECU legítima: 1 client_id fixo · Atacante: dezenas de client_ids diferentes</text>
+          </svg>
+        </div>
+        <div class="metric-row">
+          <div class="metric"><div class="val val-good">0,9982</div><div class="lbl">F1</div></div>
+          <div class="metric"><div class="val val-good">0</div><div class="lbl">FP</div></div>
+          <div class="metric"><div class="val val-good">1</div><div class="lbl">FN</div></div>
+          <div class="metric"><div class="val val-good">0,9998</div><div class="lbl">AUC</div></div>
+        </div>
+        <div class="atk-desc">
+          <h4>Como funciona o ataque</h4>
+          <p>O atacante se conecta à rede e envia mensagens REQUEST (<code>msg_type &lt; 0x80</code>) para serviços legítimos, mas em vez de usar um <span class="hi">client_id fixo</span>, rotaciona dezenas de IDs diferentes em sequência rápida.</p>
+          <p>O servidor SOME/IP tenta manter o contexto de cada client_id (para saber para onde rotear as respostas). Com IDs que nunca se repetem, a tabela de sessões cresce continuamente, consumindo memória e CPU. As respostas são enviadas para endereços inexistentes, gerando tráfego extra e latência.</p>
+          <p>A <span class="hi">assinatura chave</span> é a combinação de alta <strong>diversidade de serviços</strong> (<strong>f20</strong>, 67,5%) com alta <strong>diversidade de client_ids</strong> (<strong>f22</strong>, 29,1%) — padrão impossível para uma ECU legítima especializada.</p>
+        </div>
+      </div>
+      <div>
+        <h3>Importância das features</h3>
+        <div class="feat">
+          <div class="feat-top"><span class="name">f20 src_service_diversity</span><span class="pct">67,5%</span></div>
+          <div class="feat-bg"><div class="feat-bar b-blue" style="width:67.5%"></div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-top"><span class="name">f22 src_clientid_diversity</span><span class="pct">29,1%</span></div>
+          <div class="feat-bg"><div class="feat-bar b-purple" style="width:29.1%"></div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-top"><span class="name">f17 src_packet_rate</span><span class="pct">2,3%</span></div>
+          <div class="feat-bg"><div class="feat-bar b-orange" style="width:2.3%"></div></div>
+        </div>
+        <div class="feat">
+          <div class="feat-top"><span class="name">demais (10 features)</span><span class="pct">&lt;1%</span></div>
+          <div class="feat-bg"><div class="feat-bar b-blue" style="width:1%"></div></div>
+        </div>
+
+        <h3 style="margin-top:.8rem;">Matriz de confusão</h3>
+        <table class="cm">
+          <tr><th scope="col"></th><th scope="col">Prev: Normal</th><th scope="col">Prev: FakeID</th></tr>
+          <tr><th scope="row">Real: Normal</th><td class="cm-tn">898</td><td class="cm-fp">0</td></tr>
+          <tr><th scope="row">Real: FakeID</th><td class="cm-fn">1</td><td class="cm-tp">277</td></tr>
+        </table>
+
+        <div class="callout callout-blue" style="margin-top:.7rem; font-size:.81rem;">
+          <strong>Dataset Alkhatib 2021:</strong> labels pré-definidos em CSV — não derivados da spec SOME/IP. Menor volume (~3.920 amostras, split 70/30), mas o padrão de rotação de IDs é suficientemente distinto para separação quase perfeita.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SLIDE 12 — É POSSÍVEL DISCERNIR O TIPO DE ATAQUE?
+═══════════════════════════════════════════════════════ -->
+<div class="slide" id="s12">
+  <div class="slide-header">
     <div class="title">É possível discernir o tipo de ataque?</div>
     <div class="tag">Classificador multiclasse · 6 classes</div>
-    <div class="slide-num">11 / 13</div>
+    <div class="slide-num">12 / 14</div>
   </div>
   <div class="slide-body">
     <div class="cols">
@@ -1235,11 +1359,11 @@
 <!-- ═══════════════════════════════════════════════════════
      SLIDE 12 — MATRIZES DE CONFUSÃO COMPARATIVAS
 ═══════════════════════════════════════════════════════ -->
-<div class="slide" id="s12">
+<div class="slide" id="s13">
   <div class="slide-header">
-    <div class="title">Matrizes de Confusão — Comparativo dos 4 Classificadores</div>
-    <div class="tag">Resultados no conjunto de teste (50%)</div>
-    <div class="slide-num">12 / 13</div>
+    <div class="title">Matrizes de Confusão — Comparativo dos 5 Classificadores</div>
+    <div class="tag">Resultados no conjunto de teste</div>
+    <div class="slide-num">13 / 14</div>
   </div>
   <div class="slide-body">
     <div class="cols">
@@ -1279,21 +1403,32 @@
         </table>
         <div style="font-size:11px; color:var(--gray-4);">FPR=0,003% · FNR=0,080% · Suporte=179.686</div>
       </div>
+      <div class="card">
+        <h3>FakeClientID — F1=0,9982</h3>
+        <table class="cm" style="margin-bottom:.5rem;">
+          <tr><th scope="col"></th><th scope="col">Prev: Normal</th><th scope="col">Prev: FakeID</th></tr>
+          <tr><th scope="row">Real: Normal</th><td class="cm-tn">898</td><td class="cm-fp">0</td></tr>
+          <tr><th scope="row">Real: FakeID</th><td class="cm-fn">1</td><td class="cm-tp">277</td></tr>
+        </table>
+        <div style="font-size:11px; color:var(--gray-4);">FPR=0,000% · FNR=0,360% · Suporte=278 · Dataset: Alkhatib 2021</div>
+      </div>
     </div>
 
-    <table class="t" style="margin-top:.8rem;">
+    <table class="t" style="margin-top:.8rem; font-size:.82rem;">
       <tr>
         <th scope="col">Classificador</th>
-        <th scope="col">F1-Score</th>
-        <th scope="col">FP (falsos alarmes)</th>
-        <th scope="col">FN (ataques perdidos)</th>
-        <th scope="col">AUC-ROC</th>
+        <th scope="col">Dataset</th>
+        <th scope="col">F1</th>
+        <th scope="col">FP</th>
+        <th scope="col">FN</th>
+        <th scope="col">AUC</th>
         <th scope="col">Feature dominante</th>
       </tr>
-      <tr><td><span class="pill pill-red">DoS</span></td><td><strong>0,9998</strong></td><td><span class="pill pill-green">0</span></td><td>13</td><td>≈1,0000</td><td><code>f15 payload_len (58,7%)</code></td></tr>
-      <tr><td><span class="pill pill-orange">Fuzzy</span></td><td><strong>0,9979</strong></td><td>330</td><td>74</td><td>0,9999</td><td><code>f08 payload_hamming (51,3%)</code></td></tr>
-      <tr><td><span class="pill pill-purple">MITM Multi</span></td><td><strong>0,9984</strong></td><td>167</td><td>349</td><td>1,0000</td><td><code>f21 is_relay_service (69,7%)</code></td></tr>
-      <tr><td><span class="pill pill-purple">MITM Single</span></td><td><strong>0,9994</strong></td><td>61</td><td>143</td><td>1,0000</td><td><code>f19 is_sd (92,9%)</code></td></tr>
+      <tr><td><span class="pill pill-red">DoS</span></td><td style="font-size:.75rem;">Kim 2026</td><td><strong>0,9998</strong></td><td><span class="pill pill-green">0</span></td><td>13</td><td>≈1,0000</td><td><code>f15 payload_len (58,7%)</code></td></tr>
+      <tr><td><span class="pill pill-orange">Fuzzy</span></td><td style="font-size:.75rem;">Kim 2026</td><td><strong>0,9979</strong></td><td>330</td><td>74</td><td>0,9999</td><td><code>f08 payload_hamming (51,3%)</code></td></tr>
+      <tr><td><span class="pill pill-purple">MITM Multi</span></td><td style="font-size:.75rem;">Kim 2026</td><td><strong>0,9984</strong></td><td>167</td><td>349</td><td>1,0000</td><td><code>f21 is_relay (69,7%)</code></td></tr>
+      <tr><td><span class="pill pill-purple">MITM Single</span></td><td style="font-size:.75rem;">Kim 2026</td><td><strong>0,9994</strong></td><td>61</td><td>143</td><td>1,0000</td><td><code>f19 is_sd (92,9%)</code></td></tr>
+      <tr><td><span class="pill pill-blue">FakeClientID</span></td><td style="font-size:.75rem;">Alkhatib 2021</td><td><strong>0,9982</strong></td><td><span class="pill pill-green">0</span></td><td>1</td><td>0,9998</td><td><code>f20 svc_diversity (67,5%)</code></td></tr>
     </table>
   </div>
 </div>
@@ -1301,11 +1436,11 @@
 <!-- ═══════════════════════════════════════════════════════
      SLIDE 13 — CONCLUSÕES E PRÓXIMOS PASSOS
 ═══════════════════════════════════════════════════════ -->
-<div class="slide" id="s13">
+<div class="slide" id="s14">
   <div class="slide-header">
     <div class="title">Conclusões e Próximos Passos</div>
     <div class="tag">Síntese</div>
-    <div class="slide-num">13 / 13</div>
+    <div class="slide-num">14 / 14</div>
   </div>
   <div class="slide-body">
     <div class="cols">
@@ -1352,12 +1487,12 @@
 <div id="nav">
   <button id="btn-prev" onclick="go(-1)" disabled>← Anterior</button>
   <div id="progress-wrap"><div id="progress-bar"></div></div>
-  <div id="slide-counter">1 / 13</div>
+  <div id="slide-counter">1 / 14</div>
   <button id="btn-next" onclick="go(1)">Próximo →</button>
 </div>
 
 <script>
-  const total = 13;
+  const total = 14;
   let cur = 1;
 
   function go(d) {
