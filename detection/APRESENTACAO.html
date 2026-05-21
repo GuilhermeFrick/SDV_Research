@@ -510,90 +510,208 @@
       </div>
     </div>
 
-    <div style="margin-top:.6rem;">
-      <h3 style="color:var(--blue-dark); font-size:.9rem; margin-bottom:.6rem; border-bottom:2px solid var(--blue-pale); padding-bottom:.3rem;">
-        Catálogo completo de features — 12 variáveis comportamentais (sem bytes brutos)
-      </h3>
-      <table class="t" style="font-size:.78rem;">
+    <div style="margin-top:.5rem;">
+      <div style="display:flex; align-items:baseline; gap:1rem; margin-bottom:.5rem; border-bottom:2px solid var(--blue-pale); padding-bottom:.3rem;">
+        <h3 style="color:var(--blue-dark); font-size:.9rem; flex:1;">Catálogo completo — 21 features comportamentais (sem bytes brutos)</h3>
+        <span style="font-size:.75rem; color:var(--gray-4);">
+          <span style="background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .4rem; font-size:.72rem;">Kim full</span> pipeline Kim original &nbsp;
+          <span style="background:#e6f5ec; border:1px solid #1a7a4a; border-radius:4px; padding:.1rem .4rem; font-size:.72rem;">+ proposta</span> extensão desta pesquisa
+        </span>
+      </div>
+      <table class="t" style="font-size:.76rem;">
         <tr>
-          <th scope="col" style="width:5%">ID</th>
-          <th scope="col" style="width:28%">Nome</th>
-          <th scope="col" style="width:42%">O que mede</th>
-          <th scope="col" style="width:25%">Principal relevância</th>
+          <th scope="col" style="width:4%">ID</th>
+          <th scope="col" style="width:22%">Nome</th>
+          <th scope="col" style="width:44%">O que mede</th>
+          <th scope="col" style="width:18%">Relevância nos ataques</th>
+          <th scope="col" style="width:12%">Usado em</th>
+        </tr>
+
+        <!-- Grupo: Temporal -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">TEMPORAL / FLUXO</td>
         </tr>
         <tr>
           <td><strong>f01</strong></td>
           <td>ip_time_interval</td>
-          <td>Intervalo de tempo entre pacotes consecutivos do mesmo src_ip</td>
-          <td>Base de todos os classificadores</td>
+          <td>Intervalo de tempo entre pacotes consecutivos do mesmo fluxo (5-tupla src/dst IP+porta+protocolo)</td>
+          <td>Complementar em todos</td>
+          <td><span class="pill pill-green">todos</span></td>
+        </tr>
+
+        <!-- Grupo: Modelos de bytes -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">MODELOS DE DISTRIBUIÇÃO DE BYTES — treinados no tráfego benigno</td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f02</strong></td>
+          <td>someip_likelihood</td>
+          <td>Log-verossimilhança do payload SOME/IP frente ao modelo de bytes benigno — quão "normal" é cada byte?</td>
+          <td>Assinatura estatística de payload atípico</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f03</strong></td>
+          <td>someipsd_likelihood</td>
+          <td>Log-verossimilhança do payload SOME/IP-SD frente ao modelo benigno de mensagens Service Discovery</td>
+          <td>Detecta SD com conteúdo incomum</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f04</strong></td>
+          <td>tcpudp_likelihood</td>
+          <td>Log-verossimilhança do payload de transporte (TCP/UDP) frente ao modelo benigno</td>
+          <td>Assinatura estatística de transporte atípico</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f05</strong></td>
+          <td>someip_entropy</td>
+          <td>Entropia cruzada do payload SOME/IP vs modelo benigno — mede surpresa por byte em média</td>
+          <td>Complementa f02 (par likelihood+entropy)</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f06</strong></td>
+          <td>someipsd_entropy</td>
+          <td>Entropia cruzada do payload SD vs modelo benigno de Service Discovery</td>
+          <td>Complementa f03</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f07</strong></td>
+          <td>tcpudp_entropy</td>
+          <td>Entropia cruzada do payload de transporte vs modelo benigno</td>
+          <td>Complementa f04</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+
+        <!-- Grupo: Hamming -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">VARIAÇÃO DE PAYLOAD (DISTÂNCIA DE HAMMING)</td>
         </tr>
         <tr>
           <td><strong>f08</strong></td>
           <td>someip_payload_change</td>
-          <td>Distância de Hamming normalizada entre payloads consecutivos (0 = idêntico, 1 = completamente diferente)</td>
-          <td><span class="pill pill-orange">Fuzzy</span> dominante (51,3%)</td>
+          <td>Distância de Hamming normalizada entre payloads SOME/IP consecutivos (pacotes não-SD): 0 = idêntico, 1 = totalmente diferente</td>
+          <td><span class="pill pill-orange">Fuzzy</span> dominante (51,3%) · <span class="pill pill-red">DoS</span> ≈ 0</td>
+          <td><span class="pill pill-green">todos</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f09</strong></td>
+          <td>someipsd_payload_change</td>
+          <td>Distância de Hamming normalizada entre payloads SD consecutivos (pacotes com svc=0xFFFF)</td>
+          <td>Variação em mensagens de descoberta</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f10</strong></td>
+          <td>tcpudp_payload_change</td>
+          <td>Distância de Hamming normalizada entre payloads do segmento TCP/UDP consecutivos</td>
+          <td>Variação na camada de transporte</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+
+        <!-- Grupo: Comprimento -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">VARIAÇÃO E TAMANHO DE COMPRIMENTO</td>
         </tr>
         <tr>
           <td><strong>f11</strong></td>
           <td>ip_length_change</td>
-          <td>Variação absoluta do comprimento do pacote IP entre transmissões consecutivas do mesmo IP</td>
+          <td>Variação absoluta do comprimento do pacote IP entre transmissões consecutivas do mesmo fluxo</td>
           <td>Complementar em todos</td>
+          <td><span class="pill pill-green">todos</span></td>
         </tr>
         <tr>
           <td><strong>f12</strong></td>
           <td>tcpudp_length_change</td>
           <td>Variação absoluta do comprimento do segmento TCP/UDP entre transmissões consecutivas</td>
           <td>Complementar em todos</td>
-        </tr>
-        <tr>
-          <td><strong>f13</strong></td>
-          <td>payload_repeat_rate</td>
-          <td>Fração dos últimos 5 payloads do mesmo src_ip que são idênticos ao payload atual (janela deslizante)</td>
-          <td><span class="pill pill-red">DoS</span> — payload repetido ≈ 1,0</td>
+          <td><span class="pill pill-green">todos</span></td>
         </tr>
         <tr>
           <td><strong>f15</strong></td>
           <td>someip_payload_len</td>
-          <td>Tamanho em bytes do payload SOME/IP (após os 8 bytes de cabeçalho fixo)</td>
+          <td>Tamanho em bytes do payload SOME/IP (após os 8 bytes de cabeçalho fixo do protocolo)</td>
           <td><span class="pill pill-red">DoS</span> (58,7%) · <span class="pill pill-purple">MITM Multi</span> (28,7%)</td>
+          <td><span class="pill pill-green">todos</span></td>
         </tr>
         <tr>
           <td><strong>f16</strong></td>
           <td>tcpudp_len</td>
           <td>Comprimento total do segmento de transporte (TCP ou UDP), incluindo cabeçalho + payload</td>
           <td>Complementar em todos</td>
+          <td><span class="pill pill-green">todos</span></td>
+        </tr>
+
+        <!-- Grupo: Repetição -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">REPETIÇÃO E DIVERSIDADE DE PAYLOAD</td>
+        </tr>
+        <tr>
+          <td><strong>f13</strong></td>
+          <td>payload_repeat_rate</td>
+          <td>Fração dos últimos 5 payloads do mesmo fluxo idênticos ao payload atual (janela deslizante)</td>
+          <td><span class="pill pill-red">DoS</span> — payload repetido → rate ≈ 1,0</td>
+          <td><span class="pill pill-green">todos</span></td>
+        </tr>
+        <tr style="color:var(--gray-4);">
+          <td><strong>f14</strong></td>
+          <td>duplicate_source</td>
+          <td>Flag: 1 se o mesmo payload SOME/IP já foi observado vindo de um src_ip diferente (relay cross-PCAP)</td>
+          <td>Detecta relay MITM multi-origem</td>
+          <td><span style="font-size:.72rem; background:#f0f6ff; border:1px solid #4a8fd4; border-radius:4px; padding:.1rem .35rem;">Kim full</span></td>
+        </tr>
+
+        <!-- Grupo: Comportamento por IP -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">COMPORTAMENTO POR IP — janela deslizante de 1.000 pacotes <span style="background:#e6f5ec; border:1px solid #1a7a4a; border-radius:4px; padding:.1rem .4rem; margin-left:.4rem;">+ proposta</span></td>
         </tr>
         <tr>
           <td><strong>f17</strong></td>
           <td>src_packet_rate</td>
-          <td>Taxa de pacotes por segundo do src_ip, calculada sobre uma janela deslizante de 1.000 pacotes</td>
-          <td><span class="pill pill-red">DoS</span> e <span class="pill pill-orange">Fuzzy</span> — flood</td>
+          <td>Taxa de pacotes por segundo do src_ip, calculada sobre os últimos 1.000 timestamps do mesmo IP</td>
+          <td><span class="pill pill-red">DoS</span> e <span class="pill pill-orange">Fuzzy</span> — flood intenso</td>
+          <td><span class="pill pill-green">todos</span></td>
         </tr>
         <tr>
           <td><strong>f18</strong></td>
           <td>src_payload_diversity</td>
-          <td>Proporção de payloads únicos emitidos pelo src_ip na janela de 1.000 pacotes (0 = todos iguais, 1 = todos únicos)</td>
+          <td>Proporção de payloads únicos entre os últimos 1.000 pacotes do src_ip (0 = todos iguais, 1 = todos únicos)</td>
           <td><span class="pill pill-red">DoS</span> ≈ 0 · <span class="pill pill-orange">Fuzzy</span> ≈ 1</td>
+          <td><span class="pill pill-green">todos</span></td>
+        </tr>
+
+        <!-- Grupo: Flags SOME/IP -->
+        <tr style="background:#f0f6ff;">
+          <td colspan="5" style="font-size:.72rem; font-weight:700; color:var(--blue-mid); padding:.25rem .5rem; letter-spacing:.05em;">FLAGS SOME/IP ESPECÍFICAS <span style="background:#e6f5ec; border:1px solid #1a7a4a; border-radius:4px; padding:.1rem .4rem; margin-left:.4rem;">+ proposta</span></td>
         </tr>
         <tr>
           <td><strong>f19</strong></td>
           <td>is_sd</td>
-          <td>Flag booleana: 1 se o pacote usa service_id = 0xFFFF (porta exclusiva do SOME/IP Service Discovery)</td>
+          <td>Flag booleana: 1 se o pacote usa service_id = 0xFFFF — porta exclusiva do SOME/IP Service Discovery</td>
           <td><span class="pill pill-purple">MITM Single</span> dominante (92,9%)</td>
+          <td><span class="pill pill-orange">Fuzzy+</span></td>
         </tr>
         <tr>
           <td><strong>f20</strong></td>
           <td>src_service_diversity</td>
-          <td>Número de service_ids distintos usados pelo src_ip na janela de 1.000 pacotes</td>
-          <td><span class="pill pill-purple">MITM</span> — relay usa ID fixo</td>
+          <td>Número de service_ids distintos usados pelo src_ip na janela de 1.000 pacotes — mede se o IP usa muitos ou poucos serviços</td>
+          <td><span class="pill pill-purple">MITM</span> — relay usa service_id fixo</td>
+          <td><span class="pill pill-purple">MITM</span></td>
         </tr>
         <tr>
           <td><strong>f21</strong></td>
           <td>is_relay_service</td>
-          <td>Flag booleana: 1 se service_id = 0x100B (serviço proxy criado exclusivamente pelo atacante MITM Multi)</td>
+          <td>Flag booleana: 1 se service_id = 0x100B — serviço proxy criado exclusivamente pelo atacante no cenário MITM Multi</td>
           <td><span class="pill pill-purple">MITM Multi</span> dominante (69,7%)</td>
+          <td><span class="pill pill-purple">MITM</span></td>
         </tr>
       </table>
+      <p style="font-size:.75rem; color:var(--gray-4); margin-top:.4rem;">
+        <em>Cinza = feature presente no pipeline Kim completo (03_features.py) mas não treinada nos classificadores binários individuais — requer ByteDistributionModel separado.</em>
+      </p>
     </div>
   </div>
 </div>
