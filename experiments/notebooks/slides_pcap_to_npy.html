@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline PCAP → .npy | Kim et al. 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e8eaf0;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Deck ────────────────────────────────────────────────────── */
+  #deck {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 52px 72px 40px;
+    flex-direction: column;
+    gap: 18px;
+    animation: fadeIn .25s ease;
+  }
+  .slide.active { display: flex; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ── Typography ──────────────────────────────────────────────── */
+  .slide-tag {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #5c7cfa;
+    font-weight: 600;
+  }
+
+  h1 { font-size: 38px; font-weight: 700; color: #fff; line-height: 1.2; }
+  h2 { font-size: 26px; font-weight: 600; color: #fff; border-left: 4px solid #5c7cfa; padding-left: 14px; }
+  h3 { font-size: 16px; font-weight: 600; color: #a5b4fc; margin-bottom: 4px; }
+
+  p, li { font-size: 15px; line-height: 1.65; color: #c9d1e0; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 5px; }
+  li::marker { color: #5c7cfa; }
+
+  .subtitle { font-size: 18px; color: #94a3c4; margin-top: 4px; }
+  .author   { font-size: 14px; color: #64748b; margin-top: auto; padding-top: 12px; border-top: 1px solid #1e2536; }
+
+  /* ── Cards ───────────────────────────────────────────────────── */
+  .card-row { display: flex; gap: 16px; flex: 1; }
+
+  .card {
+    background: #161b2e;
+    border: 1px solid #1e2a42;
+    border-radius: 10px;
+    padding: 18px 20px;
+    flex: 1;
+  }
+
+  .card.accent { border-color: #5c7cfa44; }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .badge-blue   { background: #1e2a5a; color: #7b9cff; }
+  .badge-red    { background: #3a1a1a; color: #ff7b7b; }
+  .badge-green  { background: #1a2e1a; color: #7bff9c; }
+  .badge-yellow { background: #2e2a10; color: #ffd97b; }
+  .badge-purple { background: #291a3a; color: #c07bff; }
+
+  /* ── SOME/IP packet diagram ──────────────────────────────────── */
+  .pkt-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid #2a3550;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 13px;
+  }
+
+  .pkt-row {
+    display: flex;
+    border-bottom: 1px solid #1e2840;
+  }
+  .pkt-row:last-child { border-bottom: none; }
+
+  .pkt-offset {
+    width: 44px;
+    min-width: 44px;
+    background: #0d111f;
+    color: #4a5580;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #1e2840;
+  }
+
+  .pkt-field {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 6px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 500;
+    border-right: 1px solid #1e2840;
+  }
+  .pkt-field:last-child { border-right: none; }
+
+  .pkt-field.f-id      { background: #151d38; color: #7b9cff; }
+  .pkt-field.f-len     { background: #1a1530; color: #c07bff; }
+  .pkt-field.f-sess    { background: #141f20; color: #7bffd9; }
+  .pkt-field.f-ver     { background: #1a1f14; color: #a8ff7b; }
+  .pkt-field.f-ctrl    { background: #1e2818; color: #d4ff7b; }
+  .pkt-field.f-payload { background: #1a1010; color: #ff9d7b; }
+
+  .pkt-bits {
+    width: 100%;
+    display: flex;
+    background: #0d111f;
+    border-bottom: 1px solid #1e2840;
+  }
+  .pkt-bit {
+    flex: 1;
+    text-align: center;
+    font-size: 9px;
+    color: #2e3a55;
+    padding: 2px 0;
+    border-right: 1px solid #1a2035;
+  }
+  .pkt-bit:last-child { border-right: none; }
+  .pkt-bit.byte-start { color: #3e5080; font-weight: 700; }
+
+  /* ── Code blocks ─────────────────────────────────────────────── */
+  pre {
+    background: #0d111f;
+    border: 1px solid #1e2840;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #b0bcda;
+    overflow: auto;
+  }
+
+  .kw  { color: #7b9cff; }
+  .fn  { color: #d4ff7b; }
+  .cm  { color: #4a5a72; font-style: italic; }
+  .st  { color: #ff9d7b; }
+  .nm  { color: #c07bff; }
+  .cl  { color: #7bffd9; }
+
+  /* ── Two-column layout ───────────────────────────────────────── */
+  .two-col { display: flex; gap: 20px; flex: 1; align-items: flex-start; }
+  .col     { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── Feature table ───────────────────────────────────────────── */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th {
+    background: #161b2e;
+    color: #7b9cff;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 2px solid #2a3550;
+  }
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #1a2236;
+    color: #c9d1e0;
+    vertical-align: top;
+  }
+  tr:hover td { background: #12172a; }
+  td.fid { font-family: 'Cascadia Code', monospace; color: #7b9cff; font-size: 12px; }
+  td.cat { color: #7bffd9; font-size: 12px; font-weight: 500; }
+  td.desc { color: #94a3c4; font-size: 12px; }
+
+  /* ── Navigation ──────────────────────────────────────────────── */
+  #nav {
+    position: fixed;
+    bottom: 22px;
+    right: 28px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    z-index: 100;
+  }
+
+  #counter {
+    font-size: 12px;
+    color: #4a5580;
+    letter-spacing: 1px;
+    padding: 0 6px;
+  }
+
+  .nav-btn {
+    background: #161b2e;
+    border: 1px solid #2a3550;
+    color: #7b9cff;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, border-color .15s;
+  }
+  .nav-btn:hover { background: #1e2540; border-color: #5c7cfa; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  #progress {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #5c7cfa, #a5b4fc);
+    transition: width .3s ease;
+  }
+
+  /* ── Highlight box ───────────────────────────────────────────── */
+  .highlight-box {
+    background: #151d38;
+    border: 1px solid #2a3a70;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .highlight-box p { font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- ═══════════════════════════════════ SLIDE 1 — Título ════ -->
+  <div class="slide active" id="s1">
+    <span class="slide-tag">Mestrado · SDV Research · Kim et al. (2026)</span>
+    <h1>Pipeline PCAP → .npy<br><span style="color:#5c7cfa">Reprodução das 12 Features Comportamentais</span></h1>
+    <p class="subtitle">
+      Reconstrução dos arquivos <code style="color:#d4ff7b">X_train.npy</code> / <code style="color:#d4ff7b">X_test.npy</code>
+      a partir dos PCAPs brutos do dataset SOME/IP IDS
+    </p>
+    <div class="card-row" style="margin-top: 10px;">
+      <div class="card">
+        <h3>Referência</h3>
+        <p>Kim et al. (2026) — <em>XGBoost-Based Anomaly Detection Framework for SOME/IP in In-Vehicle Networks</em><br>
+        <span style="color:#5c7cfa">DOI: 10.3390/systems14020196</span></p>
+      </div>
+      <div class="card">
+        <h3>Dataset</h3>
+        <p>Figshare — 7 arquivos PCAP públicos<br>
+        <span style="color:#5c7cfa">DOI: 10.6084/m9.figshare.30970450</span></p>
+      </div>
+      <div class="card">
+        <h3>Protocolo</h3>
+        <p>SOME/IP — Scalable service-Oriented MiddlewarE over IP<br>
+        Protocolo nativo de comunicação em redes veiculares (AUTOSAR)</p>
+      </div>
+    </div>
+    <div class="card-row">
+      <div class="card accent" style="flex:0.4">
+        <h3>Etapas do notebook 04</h3>
+        <ul>
+          <li>Parse dos 7 PCAPs com Scapy</li>
+          <li>Treino de 3 modelos de bytes (benigno)</li>
+          <li>Extração de 12 features por fluxo</li>
+          <li>Split 50/50 estratificado</li>
+          <li>Normalização Min-Max → .npy</li>
+        </ul>
+      </div>
+      <div class="card" style="flex:0.6">
+        <h3>Resultado esperado</h3>
+        <table style="margin-top:6px">
+          <tr><th>Arquivo</th><th>Shape</th><th>Descrição</th></tr>
+          <tr><td class="fid">X_train.npy</td><td style="color:#d4ff7b">(7 116 674, 12)</td><td class="desc">features treino</td></tr>
+          <tr><td class="fid">X_test.npy</td><td style="color:#d4ff7b">(7 116 673, 12)</td><td class="desc">features teste</td></tr>
+          <tr><td class="fid">y_train.npy</td><td style="color:#d4ff7b">(7 116 674,)</td><td class="desc">0=normal 1=ataque</td></tr>
+          <tr><td class="fid">y_test.npy</td><td style="color:#d4ff7b">(7 116 673,)</td><td class="desc">0=normal 1=ataque</td></tr>
+        </table>
+      </div>
+    </div>
+    <p class="author">Guilherme Frick · 2026 · SDV Research / SOME/IP IDS Reproduction</p>
+  </div>
+
+  <!-- ═══════════════════════════════════ SLIDE 2 — Dataset ════ -->
+  <div class="slide" id="s2">
+    <span class="slide-tag">Contexto · Dataset</span>
+    <h2>Dataset SOME/IP IDS — Figshare</h2>
+    <div class="card-row">
+      <div class="card" style="flex:0.55">
+        <h3>7 arquivos PCAP — 4 classes de tráfego</h3>
+        <table style="margin-top:8px">
+          <tr><th>Arquivo PCAP</th><th>Rótulo</th><th>Tipo de ataque</th></tr>
+          <tr>
+            <td class="fid">benign_traffic.pcap</td>
+            <td><span class="badge badge-green">normal</span></td>
+            <td class="desc">Tráfego GPS, IMU, VDE legítimo</td>
+          </tr>
+          <tr>
+            <td class="fid">dos_noti_flood.pcap</td>
+            <td><span class="badge badge-red">dos</span></td>
+            <td class="desc">Flood de notificações SOME/IP</td>
+          </tr>
+          <tr>
+            <td class="fid">fuzzy_sd_offer_rand_noti(1-3).pcap</td>
+            <td><span class="badge badge-yellow">fuzzy</span></td>
+            <td class="desc">Payloads aleatórios via SOME/IP-SD</td>
+          </tr>
+          <tr>
+            <td class="fid">mitm_single/multi_attacker.pcap</td>
+            <td><span class="badge badge-purple">mitm</span></td>
+            <td class="desc">Intercepção e replay de mensagens</td>
+          </tr>
+        </table>
+      </div>
+      <div class="card" style="flex:0.45">
+        <h3>Distribuição treino/teste</h3>
+        <table style="margin-top:8px">
+          <tr><th>Conjunto</th><th>Amostras</th><th>Normal</th><th>Ataque</th></tr>
+          <tr>
+            <td style="color:#7bffd9">Treino</td>
+            <td style="color:#d4ff7b">7 116 674</td>
+            <td class="desc">88,3%</td>
+            <td class="desc">11,7%</td>
+          </tr>
+          <tr>
+            <td style="color:#7bffd9">Teste</td>
+            <td style="color:#d4ff7b">7 116 673</td>
+            <td class="desc">88,3%</td>
+            <td class="desc">11,7%</td>
+          </tr>
+        </table>
+        <div class="highlight-box" style="margin-top:14px">
+          <h3>Topologia simulada (vSomeIP)</h3>
+          <p>Serviços: <strong style="color:#7b9cff">GPS</strong> (30501) · <strong style="color:#7b9cff">IMU</strong> (30502) · <strong style="color:#7b9cff">VDE</strong> (30503)<br>
+          Portas SOME/IP: 30490–30510<br>
+          Transporte: <strong>UDP</strong> (SD multicast) + <strong>TCP</strong> (serviços)</p>
+        </div>
+      </div>
+    </div>
+    <div class="highlight-box">
+      <h3>Por que reconstruir os .npy a partir dos PCAPs?</h3>
+      <p>Kim et al. disponibilizaram os arrays já normalizados (<code style="color:#d4ff7b">.npy</code>) mas <strong>não publicaram o código</strong> de extração de features.
+      O notebook <code style="color:#d4ff7b">04_pcap_to_npy.ipynb</code> reimplementa o pipeline completo — parse dos PCAPs → 12 features comportamentais → normalização —
+      para verificar a reprodutibilidade e entender os parâmetros do modelo de bytes.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ SLIDE 3 — SOME/IP Structure ════ -->
+  <div class="slide" id="s3">
+    <span class="slide-tag">Protocolo · Estrutura do Pacote</span>
+    <h2>Estrutura do Cabeçalho SOME/IP</h2>
+    <div class="two-col">
+      <div class="col" style="flex:1.05">
+
+        <!-- Packet diagram -->
+        <div class="pkt-diagram">
+          <!-- bit ruler -->
+          <div class="pkt-bits">
+            <div class="pkt-offset" style="border-bottom:none;height:20px"></div>
+            <div class="pkt-bit byte-start">0</div>
+            <div class="pkt-bit">1</div><div class="pkt-bit">2</div><div class="pkt-bit">3</div>
+            <div class="pkt-bit">4</div><div class="pkt-bit">5</div><div class="pkt-bit">6</div>
+            <div class="pkt-bit byte-start">7</div>
+            <div class="pkt-bit byte-start">8</div>
+            <div class="pkt-bit">9</div><div class="pkt-bit">10</div><div class="pkt-bit">11</div>
+            <div class="pkt-bit">12</div><div class="pkt-bit">13</div><div class="pkt-bit">14</div>
+            <div class="pkt-bit byte-start">15</div>
+            <div class="pkt-bit byte-start">16</div>
+            <div class="pkt-bit">17</div><div class="pkt-bit">18</div><div class="pkt-bit">19</div>
+            <div class="pkt-bit">20</div><div class="pkt-bit">21</div><div class="pkt-bit">22</div>
+            <div class="pkt-bit byte-start">23</div>
+            <div class="pkt-bit byte-start">24</div>
+            <div class="pkt-bit">25</div><div class="pkt-bit">26</div><div class="pkt-bit">27</div>
+            <div class="pkt-bit">28</div><div class="pkt-bit">29</div><div class="pkt-bit">30</div>
+            <div class="pkt-bit byte-start">31</div>
+          </div>
+          <!-- row 0: Service ID + Method/Event ID -->
+          <div class="pkt-row">
+            <div class="pkt-offset">0–1</div>
+            <div class="pkt-field f-id" style="flex:2">Service ID<br><span style="font-size:10px;color:#4a60a0">uint16</span></div>
+            <div class="pkt-offset">2–3</div>
+            <div class="pkt-field f-id" style="flex:2">Method / Event ID<br><span style="font-size:10px;color:#4a60a0">uint16</span></div>
+          </div>
+          <!-- row 4: Length -->
+          <div class="pkt-row">
+            <div class="pkt-offset">4–7</div>
+            <div class="pkt-field f-len" style="flex:4">Length (bytes restantes após este campo)<br><span style="font-size:10px;color:#6a4a90">uint32</span></div>
+          </div>
+          <!-- row 8: Client ID + Session ID -->
+          <div class="pkt-row">
+            <div class="pkt-offset">8–9</div>
+            <div class="pkt-field f-sess" style="flex:2">Client ID<br><span style="font-size:10px;color:#2a6055">uint16</span></div>
+            <div class="pkt-offset">10–11</div>
+            <div class="pkt-field f-sess" style="flex:2">Session ID<br><span style="font-size:10px;color:#2a6055">uint16</span></div>
+          </div>
+          <!-- row 12: versions + type + code -->
+          <div class="pkt-row">
+            <div class="pkt-offset">12</div>
+            <div class="pkt-field f-ver">Proto<br>Ver</div>
+            <div class="pkt-offset">13</div>
+            <div class="pkt-field f-ver">Iface<br>Ver</div>
+            <div class="pkt-offset">14</div>
+            <div class="pkt-field f-ctrl">Msg<br>Type</div>
+            <div class="pkt-offset">15</div>
+            <div class="pkt-field f-ctrl">Ret<br>Code</div>
+          </div>
+          <!-- row payload -->
+          <div class="pkt-row">
+            <div class="pkt-offset">16+</div>
+            <div class="pkt-field f-payload" style="flex:4;padding:12px">
+              Payload  (0 … N bytes)
+              <br><span style="font-size:10px;color:#805040">— dados da aplicação ou entradas SOME/IP-SD —</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SD note -->
+        <div class="highlight-box" style="margin-top:10px">
+          <h3>SOME/IP-SD (Service Discovery)</h3>
+          <p>Identificado por <code style="color:#7b9cff">Service ID = 0xFFFF</code>.
+          Contém entradas de <em>Offer Service / Find Service</em>.
+          O parser separa SD de SOME/IP regular via flag <code style="color:#d4ff7b">is_sd</code> —
+          necessário para as 3 features SD exclusivas.</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <h3>Tipos de Mensagem (Msg Type)</h3>
+          <table>
+            <tr><th>Código</th><th>Tipo</th></tr>
+            <tr><td class="fid">0x00</td><td>REQUEST</td></tr>
+            <tr><td class="fid">0x01</td><td>REQUEST_NO_RETURN</td></tr>
+            <tr><td class="fid">0x02</td><td>NOTIFICATION</td></tr>
+            <tr><td class="fid">0x80</td><td>RESPONSE</td></tr>
+            <tr><td class="fid">0x81</td><td>ERROR</td></tr>
+          </table>
+        </div>
+        <div class="card" style="margin-top:0">
+          <h3>Portas SOME/IP neste dataset</h3>
+          <table>
+            <tr><th>Porta</th><th>Serviço</th></tr>
+            <tr><td class="fid">30490</td><td>SOME/IP-SD multicast (padrão AUTOSAR)</td></tr>
+            <tr><td class="fid">30501</td><td>GPS</td></tr>
+            <tr><td class="fid">30502</td><td>IMU</td></tr>
+            <tr><td class="fid">30503</td><td>VDE</td></tr>
+          </table>
+        </div>
+        <div class="card accent">
+          <h3>Dois payloads extraídos por pacote</h3>
+          <p style="margin-bottom:6px">
+            <code style="color:#d4ff7b">transport_payload_hex</code><br>
+            <span style="color:#94a3c4">Payload TCP/UDP completo (= mensagem SOME/IP inteira antes do parse)</span>
+          </p>
+          <p>
+            <code style="color:#d4ff7b">someip_payload_hex</code><br>
+            <span style="color:#94a3c4">Dados após os 16 bytes do header (aplicação ou SD entries)</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ SLIDE 4 — Parser Functions ════ -->
+  <div class="slide" id="s4">
+    <span class="slide-tag">Implementação · Parser</span>
+    <h2>Funções do Parser de PCAPs</h2>
+    <div class="two-col">
+      <div class="col">
+        <h3>parse_someip(raw: bytes) → dict</h3>
+        <pre><span class="kw">def</span> <span class="fn">parse_someip</span>(raw):
+    <span class="cm"># Desempacota 16 bytes do header (big-endian)</span>
+    svc, mth, length = struct.<span class="fn">unpack_from</span>(<span class="st">'>HHI'</span>, raw, 0)
+    cli, sess        = struct.<span class="fn">unpack_from</span>(<span class="st">'>HH'</span>,  raw, 8)
+    pver, iver       = struct.<span class="fn">unpack_from</span>(<span class="st">'>BB'</span>,  raw, 12)
+    mtype, rcode     = struct.<span class="fn">unpack_from</span>(<span class="st">'>BB'</span>,  raw, 14)
+    payload = raw[<span class="nm">16</span>:]           <span class="cm"># bytes após o header</span>
+    <span class="kw">return</span> {
+        <span class="st">'service_id'</span>:         svc,
+        <span class="st">'is_sd'</span>:              svc == <span class="nm">0xFFFF</span>,  <span class="cm"># SOME/IP-SD</span>
+        <span class="st">'someip_payload_hex'</span>: payload[:<span class="nm">32</span>].<span class="fn">hex</span>(),
+        <span class="st">'someip_payload_len'</span>: <span class="fn">len</span>(payload),
+        <span class="cm"># … client_id, session_id, msg_type, return_code</span>
+    }</pre>
+
+        <h3 style="margin-top:6px">parse_packet(pkt, label, pcap_file) → dict</h3>
+        <pre><span class="kw">def</span> <span class="fn">parse_packet</span>(pkt, label, pcap_file):
+    <span class="cm"># Camada IP</span>
+    ip = pkt[<span class="cl">IP</span>]            <span class="cm"># src/dst/ttl/len/id/flags</span>
+    <span class="cm"># Camada de transporte</span>
+    <span class="kw">if</span> pkt.<span class="fn">haslayer</span>(<span class="cl">TCP</span>):
+        rec = {transport: <span class="st">'TCP'</span>, src_port, dst_port, …}
+    <span class="kw">elif</span> pkt.<span class="fn">haslayer</span>(<span class="cl">UDP</span>):
+        rec = {transport: <span class="st">'UDP'</span>, src_port, dst_port, …}
+    <span class="cm"># Filtra por porta SOME/IP (30490–30510)</span>
+    <span class="kw">if not</span> <span class="fn">is_someip_port</span>(src_port, dst_port):
+        <span class="kw">return None</span>
+    <span class="cm"># Captura payload de transporte ANTES do parse SOME/IP</span>
+    rec[<span class="st">'transport_payload_hex'</span>] = raw[:<span class="nm">32</span>].<span class="fn">hex</span>()
+    <span class="cm"># Parse do header SOME/IP</span>
+    sh = <span class="fn">parse_someip</span>(raw)
+    <span class="kw">if</span> sh:
+        rec.<span class="fn">update</span>(sh)
+    <span class="kw">return</span> rec</pre>
+      </div>
+
+      <div class="col">
+        <div class="highlight-box">
+          <h3>Fluxo de extração por pacote</h3>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+            <div class="card" style="flex:0;min-width:90px;text-align:center;padding:10px">
+              <div style="font-size:20px">📦</div>
+              <div style="color:#7b9cff;font-size:12px">Frame<br>Scapy</div>
+            </div>
+            <div style="color:#2a3550;font-size:20px">→</div>
+            <div class="card" style="flex:0;min-width:90px;text-align:center;padding:10px">
+              <div style="font-size:20px">🌐</div>
+              <div style="color:#7bffd9;font-size:12px">IP<br>src / dst</div>
+            </div>
+            <div style="color:#2a3550;font-size:20px">→</div>
+            <div class="card" style="flex:0;min-width:90px;text-align:center;padding:10px">
+              <div style="font-size:20px">🔌</div>
+              <div style="color:#d4ff7b;font-size:12px">TCP/UDP<br>porta?</div>
+            </div>
+            <div style="color:#2a3550;font-size:20px">→</div>
+            <div class="card" style="flex:0;min-width:90px;text-align:center;padding:10px">
+              <div style="font-size:20px">🔍</div>
+              <div style="color:#c07bff;font-size:12px">SOME/IP<br>header</div>
+            </div>
+            <div style="color:#2a3550;font-size:20px">→</div>
+            <div class="card accent" style="flex:0;min-width:90px;text-align:center;padding:10px">
+              <div style="font-size:20px">📝</div>
+              <div style="color:#ff9d7b;font-size:12px">registro<br>CSV</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:4px">
+          <h3>Colunas do CSV parseado</h3>
+          <p style="font-size:12.5px;color:#94a3c4;margin-bottom:6px">
+            31 colunas por linha — uma linha por pacote SOME/IP válido
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="badge badge-blue">timestamp</span>
+            <span class="badge badge-blue">src/dst_ip</span>
+            <span class="badge badge-blue">ip_ttl / ip_len</span>
+            <span class="badge badge-green">transport</span>
+            <span class="badge badge-green">src/dst_port</span>
+            <span class="badge badge-purple">service_id</span>
+            <span class="badge badge-purple">method_id</span>
+            <span class="badge badge-purple">client_id</span>
+            <span class="badge badge-purple">session_id</span>
+            <span class="badge badge-purple">msg_type</span>
+            <span class="badge badge-purple">is_sd</span>
+            <span class="badge badge-red">someip_payload_hex</span>
+            <span class="badge badge-red">transport_payload_hex</span>
+            <span class="badge badge-yellow">label</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Resultado após parse dos 7 PCAPs</h3>
+          <table>
+            <tr><th>Métrica</th><th>Valor</th></tr>
+            <tr><td>Pacotes totais lidos</td><td style="color:#d4ff7b">~83 M</td></tr>
+            <tr><td>Registros SOME/IP extraídos</td><td style="color:#d4ff7b">~13,3 M</td></tr>
+            <tr><td>Taxa de extração média</td><td style="color:#7bffd9">~16 %</td></tr>
+            <tr><td>Tamanho do CSV</td><td style="color:#c07bff">~4,2 GB</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ SLIDE 5 — ByteModel ════ -->
+  <div class="slide" id="s5">
+    <span class="slide-tag">Implementação · Modelo de Bytes</span>
+    <h2>Modelo de Distribuição de Bytes — ByteModel</h2>
+    <div class="two-col">
+      <div class="col">
+        <div class="highlight-box">
+          <h3>Conceito: distribuição de bytes por posição</h3>
+          <p>Para cada posição <em>i</em> do payload (até 256 bytes), o modelo aprende
+          a probabilidade de cada valor de byte <em>b ∈ [0, 255]</em> sob tráfego benigno.<br><br>
+          Usado como referência para quantificar o <strong>quanto um payload desvia</strong>
+          do padrão normal — anomalia = payload de baixa probabilidade.</p>
+        </div>
+
+        <h3 style="margin-top:8px">Equações implementadas</h3>
+        <pre><span class="cm"># Equações 2–3: contagem com Laplace smoothing (α = 1)</span>
+P[i, b] = (count[i,b] + α) / (N_i + 256·α)
+
+<span class="cm"># Equação 5: log-likelihood (quanto mais negativo → mais anômalo)</span>
+LogL(x) = Σ log P[i, x_i]    <span class="cm">para i = 0…len(x)</span>
+
+<span class="cm"># Equação 6: cross-entropy normalizada por L</span>
+H(x) = -(1/L) · Σ log P[i, x_i]   <span class="cm">(L = len(x))</span></pre>
+
+        <h3 style="margin-top:6px">3 modelos treinados em paralelo</h3>
+        <pre><span class="cm"># Treinados sobre 50 000 amostras benignas cada</span>
+model_someip.<span class="fn">fit</span>(df_benign[<span class="st">'someip_payload_hex'</span>])
+    <span class="cm"># → aprende bytes do payload SOME/IP (pós-header)</span>
+
+model_someip_sd.<span class="fn">fit</span>(df_benign_sd[<span class="st">'someip_payload_hex'</span>])
+    <span class="cm"># → aprende bytes específicos de SOME/IP-SD</span>
+
+model_tcpudp.<span class="fn">fit</span>(df_benign[<span class="st">'transport_payload_hex'</span>])
+    <span class="cm"># → aprende bytes do payload TCP/UDP completo</span></pre>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <h3>Classe ByteModel — interface</h3>
+          <table>
+            <tr><th>Método</th><th>Descrição</th></tr>
+            <tr>
+              <td class="fid">fit(payloads_hex)</td>
+              <td class="desc">Aprende distribuição P[i,b] a partir de hex strings benignas</td>
+            </tr>
+            <tr>
+              <td class="fid">log_likelihood(h)</td>
+              <td class="desc">Score escalar — quanto mais negativo, mais anômalo</td>
+            </tr>
+            <tr>
+              <td class="fid">cross_entropy(h)</td>
+              <td class="desc">Entropia normalizada — comparável entre payloads de tamanhos diferentes</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card" style="margin-top:4px">
+          <h3>hamming(h_a, h_b) → float</h3>
+          <p style="margin-bottom:8px">Distância de Hamming <strong>bit-a-bit</strong> entre dois payloads consecutivos no mesmo fluxo.</p>
+          <pre><span class="cm"># Equação 7: conta bits diferentes via XOR + popcount</span>
+<span class="kw">def</span> <span class="fn">hamming</span>(h_a, h_b):
+    a, b = bytes.<span class="fn">fromhex</span>(h_a), bytes.<span class="fn">fromhex</span>(h_b)
+    L = <span class="fn">min</span>(<span class="fn">len</span>(a), <span class="fn">len</span>(b))
+    diff = np.<span class="fn">bitwise_xor</span>(a[:L], b[:L])
+    <span class="kw">return</span> np.<span class="fn">unpackbits</span>(diff).<span class="fn">sum</span>()</pre>
+          <p style="margin-top:8px">
+            <strong style="color:#7b9cff">0</strong> = payloads idênticos (tráfego periódico normal)<br>
+            <strong style="color:#ff9d7b">alto</strong> = payload muito diferente do anterior (possível ataque fuzzy/mitm)
+          </p>
+        </div>
+
+        <div class="highlight-box">
+          <h3>Por que 3 modelos separados?</h3>
+          <p>SOME/IP regular, SOME/IP-SD e TCP/UDP têm estruturas de bytes
+          radicalmente diferentes. Um modelo único seria muito genérico.
+          Kim et al. treinam um modelo por tipo para maximizar a discriminabilidade
+          de anomalias específicas de cada camada.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ SLIDE 6 — 12 Features ════ -->
+  <div class="slide" id="s6">
+    <span class="slide-tag">Features · Tabela 1 do Artigo</span>
+    <h2>As 12 Features Comportamentais (Tabela 1 — Kim et al.)</h2>
+    <div class="two-col">
+      <div class="col" style="flex:1.1">
+        <table>
+          <tr><th>#</th><th>Feature</th><th>Categoria</th><th>Cálculo</th></tr>
+          <tr>
+            <td class="fid">f01</td>
+            <td>IP time interval</td>
+            <td class="cat">Intervalo</td>
+            <td class="desc">Δt entre pacotes consecutivos no fluxo (five-tuple)</td>
+          </tr>
+          <tr>
+            <td class="fid">f02</td>
+            <td>SOME/IP likelihood</td>
+            <td class="cat" style="color:#7b9cff">Likelihood</td>
+            <td class="desc">LogL(someip_payload) sob model_someip benigno</td>
+          </tr>
+          <tr>
+            <td class="fid">f03</td>
+            <td>SOME/IP-SD likelihood</td>
+            <td class="cat" style="color:#7b9cff">Likelihood</td>
+            <td class="desc">LogL(someip_payload) sob model_someip_sd benigno</td>
+          </tr>
+          <tr>
+            <td class="fid">f04</td>
+            <td>TCP/UDP likelihood</td>
+            <td class="cat" style="color:#7b9cff">Likelihood</td>
+            <td class="desc">LogL(transport_payload) sob model_tcpudp benigno</td>
+          </tr>
+          <tr>
+            <td class="fid">f05</td>
+            <td>SOME/IP entropy</td>
+            <td class="cat" style="color:#c07bff">Entropy</td>
+            <td class="desc">H(someip_payload) / len — cross-entropy normalizada</td>
+          </tr>
+          <tr>
+            <td class="fid">f06</td>
+            <td>SOME/IP-SD entropy</td>
+            <td class="cat" style="color:#c07bff">Entropy</td>
+            <td class="desc">H(someip_payload_sd) / len</td>
+          </tr>
+          <tr>
+            <td class="fid">f07</td>
+            <td>TCP/UDP entropy</td>
+            <td class="cat" style="color:#c07bff">Entropy</td>
+            <td class="desc">H(transport_payload) / len</td>
+          </tr>
+          <tr>
+            <td class="fid">f08</td>
+            <td>SOME/IP payload changes</td>
+            <td class="cat" style="color:#ff9d7b">Changes</td>
+            <td class="desc">Hamming(someip_prev, someip_atual) — apenas is_sd=False</td>
+          </tr>
+          <tr>
+            <td class="fid">f09</td>
+            <td>SOME/IP-SD payload changes</td>
+            <td class="cat" style="color:#ff9d7b">Changes</td>
+            <td class="desc">Hamming(sd_prev, sd_atual) — apenas is_sd=True</td>
+          </tr>
+          <tr>
+            <td class="fid">f10</td>
+            <td>TCP/UDP payload changes</td>
+            <td class="cat" style="color:#ff9d7b">Changes</td>
+            <td class="desc">Hamming(transport_prev, transport_atual) — todos</td>
+          </tr>
+          <tr>
+            <td class="fid">f11</td>
+            <td>IP length changes</td>
+            <td class="cat" style="color:#7bffd9">Length</td>
+            <td class="desc">Δ ip_len entre pacotes consecutivos no fluxo</td>
+          </tr>
+          <tr>
+            <td class="fid">f12</td>
+            <td>TCP/UDP length changes</td>
+            <td class="cat" style="color:#7bffd9">Length</td>
+            <td class="desc">Δ transport_len entre pacotes consecutivos no fluxo</td>
+          </tr>
+        </table>
+      </div>
+      <div class="col" style="flex:0.9">
+        <div class="highlight-box">
+          <h3>Estado de fluxo (five-tuple)</h3>
+          <p>Features f01, f08–f12 são <strong>stateful</strong> — dependem do pacote anterior
+          no mesmo fluxo <code style="color:#d4ff7b">(src_ip, dst_ip, src_port, dst_port, transport)</code>.
+          O dicionário <code style="color:#d4ff7b">flow_state</code> persiste entre chunks de CSV para não
+          perder contexto nas bordas de chunk.</p>
+        </div>
+        <div class="card">
+          <h3>extract_12_features(df, flow_state, …)</h3>
+          <pre style="font-size:11.5px"><span class="kw">for</span> row <span class="kw">in</span> df.<span class="fn">itertuples</span>():
+    key = (src_ip, dst_ip, src_port,
+           dst_port, transport)
+    f01 = ts - prev_ts[key]
+    f02 = si_model.<span class="fn">log_likelihood</span>(si_pld)
+    f03 = sd_model.<span class="fn">log_likelihood</span>(si_pld)
+    f04 = tu_model.<span class="fn">log_likelihood</span>(tu_pld)
+    f05–f07  <span class="cm"># cross_entropy análogo</span>
+    f08 = <span class="fn">hamming</span>(prev_si[key], si_pld)
+           <span class="kw">if not</span> is_sd <span class="kw">else</span> <span class="nm">0</span>
+    f09 = <span class="fn">hamming</span>(prev_sd[key], si_pld)
+           <span class="kw">if</span> is_sd <span class="kw">else</span> <span class="nm">0</span>
+    f10 = <span class="fn">hamming</span>(prev_tu[key], tu_pld)
+    f11 = ip_len  - prev_ip_len[key]
+    f12 = tl_len  - prev_tl_len[key]
+    <span class="cm"># atualiza estado do fluxo</span></pre>
+        </div>
+        <div class="card accent">
+          <h3>Normalização Min-Max (Equação 8)</h3>
+          <p>Parâmetros (min, max) calculados <strong>apenas no treino</strong>,
+          aplicados ao teste para evitar data leakage.<br>
+          <code style="color:#d4ff7b">x' = clip((x − min) / (max − min), 0, 1)</code></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #deck -->
+
+<!-- Navigation -->
+<div id="nav">
+  <button class="nav-btn" id="prev" onclick="navigate(-1)" disabled>&#8592;</button>
+  <span id="counter">1 / 6</span>
+  <button class="nav-btn" id="next" onclick="navigate(1)">&#8594;</button>
+</div>
+<div id="progress"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let cur = 0;
+
+  function navigate(dir) {
+    slides[cur].classList.remove('active');
+    cur = Math.max(0, Math.min(total - 1, cur + dir));
+    slides[cur].classList.add('active');
+    document.getElementById('counter').textContent = `${cur+1} / ${total}`;
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === total - 1;
+    document.getElementById('progress').style.width = `${((cur+1)/total)*100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+  });
+
+  // init progress bar
+  document.getElementById('progress').style.width = `${(1/total)*100}%`;
+</script>
+</body>
+</html>

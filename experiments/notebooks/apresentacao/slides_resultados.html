@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reprodução Kim et al. 2026 — Resultados | Parte 2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e8eaf0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #deck { width: 100%; height: 100vh; position: relative; }
+
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 48px 72px 44px;
+    flex-direction: column;
+    gap: 16px;
+    animation: fadeIn .2s ease;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+
+  /* ── Typography ── */
+  .tag  { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #5c7cfa; font-weight: 600; }
+  h1   { font-size: 36px; font-weight: 700; color: #fff; line-height: 1.2; }
+  h2   { font-size: 24px; font-weight: 600; color: #fff; border-left: 4px solid #5c7cfa; padding-left: 14px; }
+  h3   { font-size: 14px; font-weight: 600; color: #a5b4fc; margin-bottom: 5px; }
+  p, li { font-size: 14px; line-height: 1.65; color: #c9d1e0; }
+  ul   { padding-left: 18px; }
+  li   { margin-bottom: 4px; }
+  li::marker { color: #5c7cfa; }
+  .subtitle { font-size: 17px; color: #94a3c4; margin-top: 4px; }
+  .author   { font-size: 13px; color: #4a5580; margin-top: auto; padding-top: 10px; border-top: 1px solid #1e2536; }
+
+  /* ── Cards & layout ── */
+  .card-row { display: flex; gap: 14px; }
+  .two-col  { display: flex; gap: 18px; flex: 1; align-items: flex-start; }
+  .col      { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+  .card {
+    background: #161b2e;
+    border: 1px solid #1e2a42;
+    border-radius: 10px;
+    padding: 15px 18px;
+    flex: 1;
+  }
+  .card.accent  { border-color: #5c7cfa44; }
+  .card.warn    { border-color: #ff9d7b66; background: #1a1210; }
+  .card.danger  { border-color: #ff4a4a66; background: #1a0f0f; }
+  .card.success { border-color: #7bff9c44; background: #0f1a12; }
+
+  /* ── Badges ── */
+  .badge { display:inline-block; font-size:10px; font-weight:700; letter-spacing:1px;
+           text-transform:uppercase; padding:2px 8px; border-radius:4px; margin:1px 2px; }
+  .b-blue   { background:#1e2a5a; color:#7b9cff; }
+  .b-red    { background:#3a1a1a; color:#ff7b7b; }
+  .b-green  { background:#1a2e1a; color:#7bff9c; }
+  .b-yellow { background:#2e2a10; color:#ffd97b; }
+  .b-purple { background:#291a3a; color:#c07bff; }
+  .b-orange { background:#2e1a0a; color:#ffa07b; }
+  .b-teal   { background:#0a2e2e; color:#7bffd9; }
+  .b-gray   { background:#1e2236; color:#7a8ab0; }
+
+  /* ── Tables ── */
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th { background:#161b2e; color:#7b9cff; font-size:10px; letter-spacing:1px;
+       text-transform:uppercase; padding:7px 10px; text-align:left; border-bottom:2px solid #2a3550; }
+  td { padding:6px 10px; border-bottom:1px solid #1a2236; color:#c9d1e0; vertical-align:middle; }
+  tr:hover td { background:#12172a; }
+  td.fid  { font-family:'Cascadia Code','Consolas',monospace; color:#7b9cff; font-size:12px; font-weight:600; }
+  td.val  { font-family:'Cascadia Code','Consolas',monospace; font-size:13px; text-align:right; }
+  td.good { color:#7bff9c; font-weight:700; }
+  td.warn { color:#ffd97b; font-weight:700; }
+  td.bad  { color:#ff7b7b; font-weight:700; }
+  td.note { color:#5a6a88; font-size:11px; }
+
+  /* ── Code ── */
+  pre {
+    background:#0d111f; border:1px solid #1e2840; border-radius:8px;
+    padding:12px 16px; font-family:'Cascadia Code','Consolas',monospace;
+    font-size:12px; line-height:1.6; color:#b0bcda; overflow:auto;
+  }
+  .kw { color:#7b9cff; } .fn { color:#d4ff7b; } .cm { color:#4a5a72; font-style:italic; }
+  .st { color:#ff9d7b; } .nm { color:#c07bff; } .cl { color:#7bffd9; }
+
+  /* ── Highlight box ── */
+  .hbox      { background:#151d38; border:1px solid #2a3a70; border-radius:8px; padding:11px 14px; }
+  .hbox.warn { border-color:#5a3a10; background:#1a1408; }
+  .hbox.bad  { border-color:#5a1a1a; background:#140c0c; }
+
+  /* ── Big metric ── */
+  .big-metric {
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .big-metric .val { font-size: 40px; font-weight: 800; line-height: 1; }
+  .big-metric .lbl { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+  .big-metric .sub { font-size: 12px; color: #94a3c4; }
+
+  .bm-ok   { background:#0f1e14; border:1px solid #7bff9c33; }
+  .bm-ok   .val { color: #7bff9c; }
+  .bm-ok   .lbl { color: #4a8a5a; }
+
+  .bm-warn { background:#1e1a0a; border:1px solid #ffd97b33; }
+  .bm-warn .val { color: #ffd97b; }
+  .bm-warn .lbl { color: #8a7a2a; }
+
+  .bm-bad  { background:#1a0e0e; border:1px solid #ff7b7b33; }
+  .bm-bad  .val { color: #ff7b7b; }
+  .bm-bad  .lbl { color: #7a2a2a; }
+
+  .bm-blue { background:#0e1220; border:1px solid #7b9cff33; }
+  .bm-blue .val { color: #7b9cff; }
+  .bm-blue .lbl { color: #2a3a7a; }
+
+  /* ── Bar chart ── */
+  .bar-wrap { display:flex; flex-direction:column; gap:6px; }
+  .bar-row  { display:flex; align-items:center; gap:10px; }
+  .bar-lbl  { width:140px; font-size:12px; color:#94a3c4; text-align:right; flex-shrink:0; }
+  .bar-bg   { flex:1; background:#1a2030; border-radius:4px; height:22px; position:relative; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:4px; display:flex; align-items:center; padding-left:8px;
+              font-size:11px; font-weight:700; transition:width .6s ease; }
+  .bar-val  { position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:11px; font-weight:700; }
+
+  /* ── Pipeline step ── */
+  .step-pill {
+    background:#161b2e; border:1px solid #1e2a42; border-radius:8px;
+    padding:10px 14px; display:flex; align-items:center; gap:12px;
+  }
+  .step-pill .sn { font-size:20px; font-weight:800; color:#2a3560; min-width:28px; }
+  .step-pill .st { font-size:13px; font-weight:700; color:#7b9cff; }
+  .step-pill .ss { font-size:12px; color:#94a3c4; }
+
+  /* ── Divider ── */
+  .divider { height:1px; background:#1e2a42; margin:4px 0; }
+
+  /* ── Navigation ── */
+  #nav { position:fixed; bottom:20px; right:24px; display:flex; gap:8px; align-items:center; z-index:100; }
+  #counter { font-size:12px; color:#4a5580; letter-spacing:1px; padding:0 4px; }
+  .nbtn { background:#161b2e; border:1px solid #2a3550; color:#7b9cff; width:34px; height:34px;
+          border-radius:8px; cursor:pointer; font-size:15px; display:flex; align-items:center;
+          justify-content:center; transition:background .15s; }
+  .nbtn:hover { background:#1e2540; border-color:#5c7cfa; }
+  .nbtn:disabled { opacity:0.28; cursor:default; }
+  #progress { position:fixed; bottom:0; left:0; height:3px;
+              background:linear-gradient(90deg,#fa5c7c,#ffa07b); transition:width .3s ease; }
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- ══════════════════════════════════════════════════ S1 — TÍTULO PARTE 2 -->
+<div class="slide active">
+  <span class="tag">Mestrado · SDV Research · Kim et al. (2026) — Parte 2</span>
+  <h1>Reprodução do Experimento<br><span style="color:#fa5c7c">Resultados, Análise Crítica e Limitações</span></h1>
+  <p class="subtitle">
+    XGBoost · CTGAN · 10 algoritmos comparados · 7,1 M amostras de teste
+  </p>
+
+  <div class="card-row" style="gap:12px">
+    <div class="big-metric bm-ok" style="flex:1">
+      <span class="val">0.9310</span>
+      <span class="lbl">PR-AUC</span>
+      <span class="sub">artigo: 0.93 ✓</span>
+    </div>
+    <div class="big-metric bm-ok" style="flex:1">
+      <span class="val">0.9873</span>
+      <span class="lbl">ROC-AUC</span>
+      <span class="sub">artigo: 0.99 ✓</span>
+    </div>
+    <div class="big-metric bm-warn" style="flex:1">
+      <span class="val">0.9660</span>
+      <span class="lbl">F1 weighted ⚠</span>
+      <span class="sub">artigo: 0.97 ✓ — mas weighted!</span>
+    </div>
+    <div class="big-metric bm-bad" style="flex:1">
+      <span class="val">0.845</span>
+      <span class="lbl">F1 classe ataque</span>
+      <span class="sub">o que realmente importa para IDS</span>
+    </div>
+    <div class="big-metric bm-bad" style="flex:1">
+      <span class="val">0.737</span>
+      <span class="lbl">Recall ataque</span>
+      <span class="sub">26 % dos ataques não detectados</span>
+    </div>
+  </div>
+
+  <div class="card-row">
+    <div class="card warn">
+      <h3>⚠ Ponto central desta apresentação</h3>
+      <p>O artigo reporta <strong style="color:#ffd97b">Precision / Recall / F1 = 0.97</strong> de forma isolada,
+      sem deixar explícito que são <strong>weighted averages</strong>.
+      Com 88 % do dataset sendo tráfego normal, a média ponderada é dominada pela classe normal
+      e resulta em valores elevados mesmo com detecção de ataque deficiente.
+      A <strong>métrica relevante para IDS</strong> é o F1 da classe ataque = <strong style="color:#ff7b7b">0.845</strong>,
+      e o recall de ataque = <strong style="color:#ff7b7b">0.737</strong>.</p>
+    </div>
+  </div>
+
+  <p class="author">Guilherme Frick · 2026 · SDV Research — baseado no notebook repro_someip_xgboost_ctgan_colab_corrigido</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S2 — PIPELINE EXPERIMENTO -->
+<div class="slide">
+  <span class="tag">Experimento · Pipeline</span>
+  <h2>Pipeline do Experimento — XGBoost + CTGAN</h2>
+  <div class="two-col">
+    <div class="col">
+      <h3>Hiperparâmetros XGBoost (idênticos ao artigo)</h3>
+      <pre>n_estimators     = <span class="nm">1000</span>
+learning_rate    = <span class="nm">0.05</span>
+max_depth        = <span class="nm">6</span>
+subsample        = <span class="nm">0.8</span>
+colsample_bytree = <span class="nm">0.8</span>
+min_child_weight = <span class="nm">1</span>
+reg_lambda       = <span class="nm">1.0</span>
+gamma            = <span class="nm">0.0</span>
+objective        = <span class="st">'binary:logistic'</span></pre>
+
+      <h3 style="margin-top:4px">Configuração CTGAN (idêntica ao artigo)</h3>
+      <pre>embedding_dim      = <span class="nm">128</span>
+generator_dim      = [<span class="nm">256</span>, <span class="nm">256</span>]
+discriminator_dim  = [<span class="nm">256</span>, <span class="nm">256</span>]
+batch_size         = <span class="nm">500</span>
+epochs             = <span class="nm">100</span>
+pac                = <span class="nm">10</span>
+<span class="cm"># treinado sobre 748 043 amostras de ataque reais</span>
+<span class="cm"># gerou 5,6 M amostras sintéticas (~22 min · GPU T4)</span></pre>
+    </div>
+
+    <div class="col">
+      <div class="step-pill">
+        <span class="sn">①</span>
+        <div><span class="st">Pré-processamento</span><br>
+        <span class="ss">Min-Max (fit no treino) · split 10% validação estratificada</span></div>
+      </div>
+      <div class="step-pill">
+        <span class="sn">②</span>
+        <div><span class="st">Treino — Cenário Baseline</span><br>
+        <span class="ss">XGBoost sobre 6,4 M amostras reais desbalanceadas (88/12)</span></div>
+      </div>
+      <div class="step-pill">
+        <span class="sn">③</span>
+        <div><span class="st">Treino — Cenário CTGAN</span><br>
+        <span class="ss">CTGAN gera amostras sintéticas → dataset aumentado ~12 M amostras balanceadas</span></div>
+      </div>
+      <div class="step-pill">
+        <span class="sn">④</span>
+        <div><span class="st">Seleção de Threshold</span><br>
+        <span class="ss">F1 maximizado na validação (10% do treino)</span></div>
+      </div>
+      <div class="step-pill">
+        <span class="sn">⑤</span>
+        <div><span class="st">Avaliação — Cenário A (realista)</span><br>
+        <span class="ss">Teste desbalanceado · 6,2 M normal vs 831 K ataque</span></div>
+      </div>
+      <div class="step-pill">
+        <span class="sn">⑥</span>
+        <div><span class="st">Avaliação — Cenário B (controlado)</span><br>
+        <span class="ss">Teste balanceado por downsampling · 831 K vs 831 K</span></div>
+      </div>
+
+      <div class="hbox warn" style="margin-top:4px">
+        <h3>Dificuldade: código não publicado</h3>
+        <p>Kim et al. não disponibilizaram código.
+        Todo o pipeline foi reconstruído a partir das Seções 4-5 do artigo.
+        O threshold diverge (artigo: 0.36 · reprodução: 0.43) porque o artigo
+        não especifica o percentual do split de validação.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S3 — O QUE É WEIGHTED F1 -->
+<div class="slide">
+  <span class="tag">Análise Crítica · ⚠ Weighted Average</span>
+  <h2 style="border-color:#fa5c7c">⚠ F1 = 0.97 — O que o artigo <em>realmente</em> reporta</h2>
+  <div class="two-col">
+    <div class="col" style="flex:1.1">
+
+      <div class="card danger">
+        <h3 style="color:#ff7b7b">O problema: F1 weighted ≠ F1 da classe ataque</h3>
+        <p style="margin-bottom:10px">O <strong>weighted average</strong> pondera cada classe pelo número de amostras. Com 88% de tráfego normal no dataset, a média é dominada pela classe normal — que o modelo aprende facilmente.</p>
+        <table>
+          <tr><th>Métrica</th><th>Valor</th><th>O que significa</th></tr>
+          <tr>
+            <td>F1 <strong>weighted</strong></td>
+            <td class="val good">0.97</td>
+            <td class="note">Dominado por 88% de amostras normais — não reflete capacidade de detecção de ataque</td>
+          </tr>
+          <tr>
+            <td>F1 classe <strong>normal</strong></td>
+            <td class="val good">~0.983</td>
+            <td class="note">Alta — modelo identifica tráfego normal com facilidade</td>
+          </tr>
+          <tr>
+            <td>F1 classe <strong>ataque</strong></td>
+            <td class="val bad">0.845</td>
+            <td class="note">Esta é a métrica relevante para IDS — 0.13 abaixo do F1 weighted</td>
+          </tr>
+          <tr>
+            <td>Recall classe <strong>ataque</strong></td>
+            <td class="val bad">0.737</td>
+            <td class="note">26 % dos ataques NÃO são detectados com o threshold ótimo de F1</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="hbox" style="margin-top:6px">
+        <h3>Cálculo do weighted average</h3>
+        <pre><span class="cm"># sklearn — average='weighted'</span>
+F1_w = (F1_normal × N_normal + F1_ataque × N_ataque)
+       / (N_normal + N_ataque)
+
+     = (<span class="nm">0.983</span> × <span class="nm">6 285 514</span> + <span class="nm">0.845</span> × <span class="nm">831 159</span>)
+       / <span class="nm">7 116 673</span>
+
+     ≈ <span class="nm">0.966</span>   <span class="cm">← isso é o "F1 = 0.97" do artigo</span></pre>
+      </div>
+    </div>
+
+    <div class="col">
+      <!-- Visual bar chart comparison -->
+      <div class="card" style="padding:18px">
+        <h3>F1 por classe vs weighted — impacto do desbalanceamento</h3>
+        <div class="bar-wrap" style="margin-top:14px">
+
+          <div style="font-size:11px;color:#4a5580;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">O que o artigo reporta</div>
+          <div class="bar-row">
+            <span class="bar-lbl">F1 weighted</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:97%;background:linear-gradient(90deg,#1e4a2e,#4a8a5a)">
+                <span style="color:#7bff9c">0.97</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:10px"></div>
+          <div style="font-size:11px;color:#4a5580;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">O que está acontecendo por dentro</div>
+
+          <div class="bar-row">
+            <span class="bar-lbl">F1 classe normal</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:98.3%;background:linear-gradient(90deg,#1e3a4e,#3a6a8a)">
+                <span style="color:#7bdfff">~0.983</span>
+              </div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl" style="color:#ff7b7b">F1 ataque</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:84.5%;background:linear-gradient(90deg,#4e1e1e,#8a3a3a)">
+                <span style="color:#ff9d7b">0.845</span>
+              </div>
+              <span class="bar-val" style="color:#ff7b7b">⟵ −12,2 pp</span>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl" style="color:#ff7b7b">Recall ataque</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:73.7%;background:linear-gradient(90deg,#4e1a0e,#8a3a1a)">
+                <span style="color:#ffa07b">0.737</span>
+              </div>
+              <span class="bar-val" style="color:#ff7b7b">⟵ 26% dos ataques perdidos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card danger" style="margin-top:0">
+        <h3 style="color:#ff7b7b">Impacto operacional</h3>
+        <p>Em um IDS para redes veiculares, <strong>recall de 0.737</strong> significa que
+        <strong>1 em cada 4 ataques reais não gera alerta</strong>.
+        Para segurança veicular, isso é operacionalmente crítico —
+        especialmente em ataques MITM que comprometem mensagens de controle.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S4 — RESULTADOS GLOBAIS -->
+<div class="slide">
+  <span class="tag">Resultados · Comparação com o Artigo</span>
+  <h2>Métricas Globais — Reprodução vs Artigo</h2>
+  <div class="two-col">
+    <div class="col">
+      <div class="card-row" style="flex-wrap:wrap;gap:12px">
+        <div class="big-metric bm-ok" style="flex:1;min-width:120px">
+          <span class="val">0.9310</span>
+          <span class="lbl">PR-AUC</span>
+          <span class="sub">artigo: 0.93 ✓</span>
+        </div>
+        <div class="big-metric bm-ok" style="flex:1;min-width:120px">
+          <span class="val">0.9873</span>
+          <span class="lbl">ROC-AUC</span>
+          <span class="sub">artigo: 0.99 ✓</span>
+        </div>
+        <div class="big-metric bm-warn" style="flex:1;min-width:120px">
+          <span class="val">0.966</span>
+          <span class="lbl">F1 weighted</span>
+          <span class="sub">artigo: 0.97 ✓</span>
+        </div>
+        <div class="big-metric bm-ok" style="flex:1;min-width:120px">
+          <span class="val">0.968</span>
+          <span class="lbl">Accuracy</span>
+          <span class="sub">artigo: ~0.97 ✓</span>
+        </div>
+      </div>
+
+      <div class="card success" style="margin-top:4px">
+        <h3 style="color:#7bff9c">Reprodução bem-sucedida</h3>
+        <p>Todas as métricas globais convergem com o artigo ao arredondar para 2 casas decimais.
+        <br>Ambiente: Google Colab · GPU T4 · Python 3.12</p>
+      </div>
+
+      <div class="card" style="margin-top:4px">
+        <h3>Cenário A — Métricas da classe ataque (teste desbalanceado)</h3>
+        <table>
+          <tr><th>Modelo</th><th>Threshold</th><th>Precision</th><th>Recall</th><th>F1</th></tr>
+          <tr>
+            <td>Baseline (sem CTGAN)</td>
+            <td class="val" style="color:#c07bff">0.431</td>
+            <td class="val good">0.988</td>
+            <td class="val bad">0.737</td>
+            <td class="val warn">0.845</td>
+          </tr>
+          <tr>
+            <td>CTGAN + XGBoost</td>
+            <td class="val" style="color:#c07bff">0.399</td>
+            <td class="val good">0.987</td>
+            <td class="val bad">0.737</td>
+            <td class="val warn">0.844</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h3>Cenário B — Teste balanceado (831K vs 831K)</h3>
+        <table>
+          <tr><th>Modelo</th><th>F1</th><th>Precision</th><th>Recall</th></tr>
+          <tr>
+            <td>Baseline</td>
+            <td class="val good">0.9429</td>
+            <td class="val warn">0.9169</td>
+            <td class="val good">0.9703</td>
+          </tr>
+          <tr>
+            <td>CTGAN + XGBoost</td>
+            <td class="val good">0.9429</td>
+            <td class="val warn">0.9167</td>
+            <td class="val good">0.9706</td>
+          </tr>
+        </table>
+        <p style="font-size:12px;color:#94a3c4;margin-top:8px">No teste balanceado, o recall sobe para 0.97 — confirmando que o baixo recall no Cenário A é resultado do desbalanceamento, não da capacidade do modelo.</p>
+      </div>
+
+      <div class="card warn" style="margin-top:0">
+        <h3>Discrepância de threshold — por quê?</h3>
+        <table>
+          <tr><th></th><th>Threshold</th><th>Motivo</th></tr>
+          <tr>
+            <td>Artigo</td>
+            <td class="val" style="color:#ffd97b">0.36</td>
+            <td class="note">Split de validação não especificado</td>
+          </tr>
+          <tr>
+            <td>Reprodução</td>
+            <td class="val" style="color:#ffd97b">0.43</td>
+            <td class="note">10% do treino como validação estratificada</td>
+          </tr>
+        </table>
+        <p style="font-size:12px;color:#94a3c4;margin-top:8px">Threshold diferente, mas métricas finais convergem — o modelo não é sensível a variações pequenas de threshold na região ótima.</p>
+      </div>
+
+      <div class="hbox">
+        <h3>Alta precision · Baixo recall (Cenário A)</h3>
+        <p>Com threshold 0.431, o modelo é muito conservador: quando diz "ataque", quase sempre está certo (precision 0.988). Mas deixa escapar 26% dos ataques reais.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S5 — CTGAN -->
+<div class="slide">
+  <span class="tag">Análise Crítica · CTGAN</span>
+  <h2>CTGAN — Custo Computacional vs Benefício Medido</h2>
+  <div class="two-col">
+    <div class="col">
+      <div class="card-row" style="gap:12px">
+        <div class="big-metric bm-warn" style="flex:1">
+          <span class="val">22 min</span>
+          <span class="lbl">GPU T4 · treino</span>
+          <span class="sub">748 043 amostras · 100 epochs</span>
+        </div>
+        <div class="big-metric bm-warn" style="flex:1">
+          <span class="val">&lt; 1 min</span>
+          <span class="lbl">Geração</span>
+          <span class="sub">5,6 M amostras sintéticas</span>
+        </div>
+        <div class="big-metric bm-bad" style="flex:1">
+          <span class="val">≈ 0</span>
+          <span class="lbl">Melhora</span>
+          <span class="sub">em todas as métricas</span>
+        </div>
+      </div>
+
+      <div class="card danger" style="margin-top:4px">
+        <h3 style="color:#ff7b7b">Delta CTGAN vs Baseline — todas as métricas pioraram levemente</h3>
+        <table>
+          <tr><th>Métrica</th><th>Baseline</th><th>CTGAN</th><th>Delta</th></tr>
+          <tr>
+            <td>Weighted F1</td>
+            <td class="val">0.9663</td>
+            <td class="val">0.9661</td>
+            <td class="val bad">−0.0002</td>
+          </tr>
+          <tr>
+            <td>Attack F1</td>
+            <td class="val">0.8445</td>
+            <td class="val">0.8436</td>
+            <td class="val bad">−0.0009</td>
+          </tr>
+          <tr>
+            <td>Attack Recall</td>
+            <td class="val">0.7372</td>
+            <td class="val">0.7368</td>
+            <td class="val bad">−0.0004</td>
+          </tr>
+          <tr>
+            <td>PR-AUC</td>
+            <td class="val">0.9315</td>
+            <td class="val">0.9300</td>
+            <td class="val bad">−0.0015</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Dataset aumentado pelo CTGAN</h3>
+        <table>
+          <tr><th>Conjunto</th><th>Amostras</th><th>Normal</th><th>Ataque</th></tr>
+          <tr><td>Treino original</td><td class="val">6 374 674</td><td class="note">88,3%</td><td class="note bad">11,7%</td></tr>
+          <tr><td>Sintético gerado</td><td class="val">+5 543 515</td><td class="note">—</td><td class="note good">100% ataque</td></tr>
+          <tr><td>Treino aumentado</td><td class="val warn">~12 M</td><td class="note">52,3%</td><td class="note good">47,7%</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="hbox bad">
+        <h3 style="color:#ff7b7b">Por que o CTGAN não ajudou?</h3>
+        <ul style="margin-top:8px">
+          <li>As <strong>12 features comportamentais</strong> já são suficientemente discriminativas para o XGBoost — o sinal de separação é forte sem balanceamento</li>
+          <li>O dataset original contém <strong>representação adequada</strong> dos padrões de ataque (831 K amostras reais de ataque)</li>
+          <li>O CTGAN gera amostras <em>similares</em> às de treino, não <em>novas</em> — não adiciona variabilidade relevante</li>
+          <li>O XGBoost com <code style="color:#d4ff7b">scale_pos_weight</code> ou pesos de classe seria mais simples e provavelmente equivalente</li>
+        </ul>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <h3>Gerenciamento de memória</h3>
+        <table>
+          <tr><th>Dado</th><th>Tamanho RAM</th></tr>
+          <tr><td>Dataset completo (float32)</td><td class="val warn">~3,2 GB</td></tr>
+          <tr><td>Dataset aumentado CTGAN</td><td class="val bad">+4,6 GB</td></tr>
+          <tr><td>Solução adotada</td><td class="note">mmap_mode + gc.collect() explícito entre etapas</td></tr>
+        </table>
+      </div>
+
+      <div class="card accent">
+        <h3>Conclusão sobre o CTGAN</h3>
+        <p>O CTGAN é o <strong>componente central</strong> do pipeline proposto por Kim et al.
+        A reprodução mostra que ele <strong>não contribui</strong> para a melhora do desempenho neste dataset,
+        questionando sua necessidade prática e o custo de 22 minutos de GPU.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S6 — TRADE-OFF OPERACIONAL -->
+<div class="slide">
+  <span class="tag">Análise Crítica · Trade-off Operacional</span>
+  <h2>Trade-off Threshold — Recall vs Falsos Positivos</h2>
+  <div class="two-col">
+    <div class="col">
+      <div class="card-row" style="gap:12px">
+        <div class="big-metric bm-blue" style="flex:1">
+          <span class="val">0.43</span>
+          <span class="lbl">threshold ótimo F1</span>
+          <span class="sub">recall = 0.737</span>
+        </div>
+        <div class="big-metric bm-warn" style="flex:1">
+          <span class="val">0.14</span>
+          <span class="lbl">threshold recall 0.97</span>
+          <span class="sub">554 K falsos positivos</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Dois cenários de threshold</h3>
+        <table>
+          <tr><th>Threshold</th><th>Recall</th><th>Precision</th><th>Falsos Positivos</th></tr>
+          <tr>
+            <td class="val" style="color:#7b9cff">0.431</td>
+            <td class="val bad">0.737</td>
+            <td class="val good">0.988</td>
+            <td class="val good">~22 000</td>
+          </tr>
+          <tr>
+            <td class="val" style="color:#ffa07b">0.137</td>
+            <td class="val good">0.970</td>
+            <td class="val bad">0.593</td>
+            <td class="val bad">554 346</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="card danger">
+        <h3 style="color:#ff7b7b">Em operação real — 1 800 pacotes/segundo</h3>
+        <table>
+          <tr><th>Threshold</th><th>Ataques perdidos</th><th>Alertas falsos</th><th>Viabilidade</th></tr>
+          <tr>
+            <td class="val" style="color:#7b9cff">0.431</td>
+            <td class="val bad">26% dos ataques</td>
+            <td class="val good">baixo</td>
+            <td><span class="badge b-yellow">PARCIAL</span></td>
+          </tr>
+          <tr>
+            <td class="val" style="color:#ffa07b">0.137</td>
+            <td class="val good">3% dos ataques</td>
+            <td class="val bad">contínuos</td>
+            <td><span class="badge b-red">INVIÁVEL</span></td>
+          </tr>
+        </table>
+        <p style="font-size:12px;color:#94a3c4;margin-top:8px">
+          Com threshold 0.137 e 1 800 pkt/s: ~<strong style="color:#ff7b7b">78 alertas falsos por segundo</strong>.
+          Sem pós-filtragem, qualquer operador desativaria o IDS.
+        </p>
+      </div>
+    </div>
+
+    <div class="col">
+      <!-- Visual: recall-precision tradeoff diagram using bars -->
+      <div class="card" style="padding:18px">
+        <h3>Impacto do threshold no recall de ataque</h3>
+        <div class="bar-wrap" style="margin-top:14px">
+          <div style="font-size:10px;color:#4a5580;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">recall de ataque por threshold</div>
+          <div class="bar-row">
+            <span class="bar-lbl">thr = 0.10</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:97.5%;background:linear-gradient(90deg,#1e4a2e,#4a8a5a)"><span style="color:#7bff9c">0.975</span></div>
+              <span class="bar-val" style="color:#ff7b7b">740K FP</span>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">thr = 0.14</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:97%;background:linear-gradient(90deg,#1e4a2e,#4a8a5a)"><span style="color:#7bff9c">0.970</span></div>
+              <span class="bar-val" style="color:#ff7b7b">554K FP</span>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">thr = 0.25</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:88%;background:linear-gradient(90deg,#2e3a10,#6a8a2a)"><span style="color:#c0ff7b">0.880</span></div>
+              <span class="bar-val" style="color:#ffd97b">~120K FP</span>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl" style="color:#7b9cff">thr = 0.43 ★</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:73.7%;background:linear-gradient(90deg,#4e1a0e,#8a3a1a)"><span style="color:#ffa07b">0.737</span></div>
+              <span class="bar-val" style="color:#7b9cff">★ F1 ótimo</span>
+            </div>
+          </div>
+          <div class="bar-row">
+            <span class="bar-lbl">thr = 0.70</span>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width:45%;background:linear-gradient(90deg,#4e1010,#8a1a1a)"><span style="color:#ff7b7b">0.450</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hbox warn">
+        <h3>Conclusão sobre o trade-off</h3>
+        <p>Nenhum threshold neste modelo resolve simultaneamente o problema de recall alto e
+        falsos positivos baixos. O gargalo não é o algoritmo — é a
+        <strong>quantidade de features discriminativas</strong> (12 features comportamentais),
+        que não capturam completamente as anomalias de tipo MITM de baixa intensidade.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S7 — COMPARAÇÃO ALGORITMOS -->
+<div class="slide">
+  <span class="tag">Resultados · Comparação de Algoritmos (Seção 6.3)</span>
+  <h2>10 Algoritmos Comparados — Métricas Weighted e de Ataque</h2>
+  <div class="two-col">
+    <div class="col" style="flex:1.2">
+      <table>
+        <tr>
+          <th>Modelo</th><th>Threshold</th>
+          <th>F1 (w)</th><th>PR-AUC</th>
+          <th>F1 ataque</th><th>Recall ataque</th>
+          <th>Nota</th>
+        </tr>
+        <tr style="background:#0e1820">
+          <td class="fid">XGB ★</td>
+          <td class="val" style="color:#c07bff">0.431</td>
+          <td class="val good">0.9663</td>
+          <td class="val good">0.9315</td>
+          <td class="val warn">0.8445</td>
+          <td class="val warn">0.7372</td>
+          <td class="note">melhor PR-AUC</td>
+        </tr>
+        <tr>
+          <td class="fid">LGB</td>
+          <td class="val" style="color:#c07bff">0.372</td>
+          <td class="val good">0.9660</td>
+          <td class="val good">0.9300</td>
+          <td class="val warn">0.8434</td>
+          <td class="val warn">0.7364</td>
+          <td class="note">≈ XGB</td>
+        </tr>
+        <tr>
+          <td class="fid">RF †</td>
+          <td class="val" style="color:#c07bff">0.710</td>
+          <td class="val good">0.9654</td>
+          <td class="val warn">0.9260</td>
+          <td class="val warn">0.8404</td>
+          <td class="val warn">0.7336</td>
+          <td class="note">1 M amostras</td>
+        </tr>
+        <tr>
+          <td class="fid">KNN * †</td>
+          <td class="val" style="color:#c07bff">0.800</td>
+          <td class="val good">0.9644</td>
+          <td class="val warn">0.8674</td>
+          <td class="val warn">0.8354</td>
+          <td class="val warn">0.7261</td>
+          <td class="note">100 K amostras</td>
+        </tr>
+        <tr style="background:#1a0e0e">
+          <td class="fid">DT ‡</td>
+          <td class="val" style="color:#c07bff">1.000</td>
+          <td class="val warn">0.9569</td>
+          <td class="val bad">0.7083</td>
+          <td class="val warn">0.8139</td>
+          <td class="val good">0.8017</td>
+          <td class="note bad">artefato ‡</td>
+        </tr>
+        <tr>
+          <td class="fid">LR</td>
+          <td class="val" style="color:#c07bff">0.319</td>
+          <td class="val warn">0.9297</td>
+          <td class="val bad">0.7031</td>
+          <td class="val bad">0.6911</td>
+          <td class="val bad">0.6592</td>
+          <td class="note">linear</td>
+        </tr>
+        <tr>
+          <td class="fid">NB ‡</td>
+          <td class="val" style="color:#c07bff">1.000</td>
+          <td class="val warn">0.9078</td>
+          <td class="val bad">0.4901</td>
+          <td class="val bad">0.5961</td>
+          <td class="val bad">0.5719</td>
+          <td class="note bad">artefato ‡</td>
+        </tr>
+        <tr>
+          <td class="fid">AE</td>
+          <td class="val" style="color:#c07bff">~0.000</td>
+          <td class="val warn">0.9317</td>
+          <td class="val bad">0.7027</td>
+          <td class="val bad">0.7032</td>
+          <td class="val bad">0.6848</td>
+          <td class="note">threshold ≈ 0</td>
+        </tr>
+        <tr>
+          <td class="fid">IF * †</td>
+          <td class="val" style="color:#c07bff">0.047</td>
+          <td class="val bad">0.8892</td>
+          <td class="val bad">0.4888</td>
+          <td class="val bad">0.5451</td>
+          <td class="val bad">0.5860</td>
+          <td class="note">500 K amostras</td>
+        </tr>
+        <tr>
+          <td class="fid">LOF * †</td>
+          <td class="val" style="color:#c07bff">1.002</td>
+          <td class="val bad">0.5579</td>
+          <td class="val bad">0.1230</td>
+          <td class="val bad">0.2355</td>
+          <td class="val warn">0.6920</td>
+          <td class="note">50 K amostras</td>
+        </tr>
+      </table>
+      <p style="font-size:11px;color:#4a5580;margin-top:6px">
+        * subamostra · † limitação computacional · ‡ predict_proba discreto (0 ou 1) — threshold=1.0 = predição hard
+      </p>
+    </div>
+
+    <div class="col">
+      <div class="card warn">
+        <h3>⚠ DT com maior recall de ataque — artefato!</h3>
+        <p>O DT retorna probabilidades <strong>discretas (0 ou 1)</strong> por folha pura.
+        Com <code style="color:#d4ff7b">threshold=1.0</code>, o resultado é idêntico à predição hard do DT —
+        que por construção maximiza pureza de classe.<br><br>
+        O recall alto <strong>não reflete melhor discriminação probabilística</strong>.
+        Evidência: PR-AUC = 0.708 vs XGB 0.9315.
+        DT não é superior — é um artefato de avaliação com score discreto.</p>
+      </div>
+
+      <div class="card accent">
+        <h3>Ensemble supervisionados dominam</h3>
+        <p>XGB · LGB · RF · KNN agrupam-se em:</p>
+        <ul style="margin-top:6px">
+          <li>Weighted F1: <strong style="color:#7bff9c">0.965 – 0.966</strong></li>
+          <li>Attack recall: <strong style="color:#ffd97b">0.726 – 0.737</strong></li>
+          <li>Diferença entre eles: <strong>marginal</strong></li>
+        </ul>
+        <p style="margin-top:8px">O ganho de complexidade (XGB→LGB→RF) não justifica custo adicional.</p>
+      </div>
+
+      <div class="card danger">
+        <h3 style="color:#ff7b7b">Modelos não-supervisionados muito abaixo</h3>
+        <p>AE (0.703) · IF (0.545) · LOF (0.236) ficam significativamente abaixo dos supervisionados —
+        indicando que as 12 features comportamentais fornecem sinal discriminativo forte
+        para abordagens supervisionadas simples, mas não para detecção de anomalias genérica.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ S8 — CONCLUSÕES -->
+<div class="slide">
+  <span class="tag">Conclusões</span>
+  <h2>Conclusões da Reprodução</h2>
+  <div class="two-col">
+    <div class="col">
+      <div class="card success">
+        <h3 style="color:#7bff9c">✓ Reprodução bem-sucedida</h3>
+        <p>Todas as métricas globais convergem com o artigo ao arredondar para 2 casas decimais:</p>
+        <ul style="margin-top:8px">
+          <li>PR-AUC = 0.93 ✓</li>
+          <li>ROC-AUC = 0.99 ✓</li>
+          <li>Weighted F1 = 0.97 ✓</li>
+          <li>Accuracy ≈ 0.97 ✓</li>
+        </ul>
+      </div>
+
+      <div class="card danger" style="margin-top:0">
+        <h3 style="color:#ff7b7b">✗ Três pontos não destacados no artigo</h3>
+        <p style="margin-bottom:10px"></p>
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px">
+          <span style="font-size:22px;font-weight:800;color:#3a1a1a;min-width:26px">1</span>
+          <p><strong style="color:#ffd97b">F1 = 0.97 é weighted average</strong>, não da classe ataque.
+          F1 ataque real = 0.845, recall ataque = 0.737.
+          A denominação isolada induz interpretação otimista.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px">
+          <span style="font-size:22px;font-weight:800;color:#3a1a1a;min-width:26px">2</span>
+          <p><strong style="color:#ffd97b">CTGAN não contribui</strong> para a melhora.
+          Componente central do pipeline proposto, custou 22 min de GPU e piorou
+          levemente todas as métricas (delta = −0.0002 a −0.0015).</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <span style="font-size:22px;font-weight:800;color:#3a1a1a;min-width:26px">3</span>
+          <p><strong style="color:#ffd97b">Avaliação comparativa</strong>: XGB, LGB, RF e KNN são
+          virtualmente idênticos. DT tem maior attack recall por artefato de predição discreta.
+          Modelos não-supervisionados ficam significativamente abaixo.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card warn">
+        <h3>Limitação operacional central</h3>
+        <p>Para IDS veicular em tempo real, o modelo enfrenta um dilema insolúvel com as 12 features:</p>
+        <div style="display:flex;gap:12px;margin-top:12px">
+          <div class="big-metric bm-bad" style="flex:1;padding:12px">
+            <span class="val" style="font-size:28px">0.737</span>
+            <span class="lbl">recall máximo<br>com FP aceitáveis</span>
+          </div>
+          <div style="display:flex;align-items:center;color:#4a5580;font-size:20px">ou</div>
+          <div class="big-metric bm-bad" style="flex:1;padding:12px">
+            <span class="val" style="font-size:28px">554K</span>
+            <span class="lbl">falsos positivos<br>para recall = 0.97</span>
+          </div>
+        </div>
+        <p style="margin-top:12px;font-size:13px">Em 1 800 pkt/s com recall 0.97: <strong style="color:#ff7b7b">~78 alertas falsos por segundo</strong>.</p>
+      </div>
+
+      <div class="card accent">
+        <h3>Próximos passos sugeridos</h3>
+        <ul>
+          <li>Adicionar features temporais de janela (burst detection)</li>
+          <li>Separar avaliação por tipo de ataque (DoS · Fuzzy · MITM têm padrões distintos)</li>
+          <li>Testar ensemble de thresholds por tipo de serviço (GPS vs VDE)</li>
+          <li>Avaliar XGBoost com <code style="color:#d4ff7b">scale_pos_weight</code> vs CTGAN</li>
+        </ul>
+      </div>
+
+      <div style="display:flex;gap:12px">
+        <div class="card" style="text-align:center;padding:12px">
+          <div style="font-size:28px">📓</div>
+          <div style="font-size:11px;color:#5c7cfa">repro_someip_xgboost<br>_ctgan_colab_corrigido</div>
+        </div>
+        <div class="card" style="text-align:center;padding:12px">
+          <div style="font-size:28px">📊</div>
+          <div style="font-size:11px;color:#5c7cfa">04_pcap_to_npy<br>.ipynb</div>
+        </div>
+        <div class="card" style="text-align:center;padding:12px">
+          <div style="font-size:28px">📄</div>
+          <div style="font-size:11px;color:#5c7cfa">relatorio_reproducao<br>_kim2026.md</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="author">Guilherme Frick · 2026 · SDV Research / SOME/IP IDS Reproduction · Google Colab GPU T4 · Python 3.12</p>
+</div>
+
+</div><!-- #deck -->
+
+<div id="nav">
+  <button class="nbtn" id="prev" onclick="go(-1)" disabled>&#8592;</button>
+  <span id="counter">1 / 8</span>
+  <button class="nbtn" id="next" onclick="go(1)">&#8594;</button>
+</div>
+<div id="progress"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let cur = 0;
+
+  function go(d) {
+    slides[cur].classList.remove('active');
+    cur = Math.max(0, Math.min(total - 1, cur + d));
+    slides[cur].classList.add('active');
+    document.getElementById('counter').textContent = `${cur+1} / ${total}`;
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === total - 1;
+    document.getElementById('progress').style.width = `${((cur+1)/total)*100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' ') go(1);
+    if (e.key==='ArrowLeft' ||e.key==='ArrowUp')                go(-1);
+  });
+
+  document.getElementById('progress').style.width = `${(1/total)*100}%`;
+</script>
+</body>
+</html>

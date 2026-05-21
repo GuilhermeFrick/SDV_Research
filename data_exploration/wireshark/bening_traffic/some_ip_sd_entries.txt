@@ -1,0 +1,116 @@
+
+==================================================================================================================================================================
+SOME/IP-SD Entries:
+Topic / Item                                       Count         Average       Min Val       Max Val       Rate (ms)     Percent       Burst Rate    Burst Start  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Source Addresses                                   18713                                                   0,0125        100%          0,3100        9,780        
+ 172.18.0.9 (172.18.0.9)                           2257                                                    0,0015        12,06%        0,0300        1,151        
+  Subscribe Eventgroup                             2245                                                    0,0015        99,47%        0,0300        4,401        
+   Service 0x1003 Version 0.0 Instance 0x0003      750                                                     0,0005        33,41%        0,0300        9,781        
+   Service 0x1002 Version 0.0 Instance 0x0002      747                                                     0,0005        33,27%        0,0100        3,486        
+   Service 0x1001 Version 0.0 Instance 0x0001      748                                                     0,0005        33,32%        0,0200        4,401        
+  Find Service                                     12                                                      0,0000        0,53%         0,0300        1,151        
+   Service 0x1003 Version MAX.MAX Instance 0x0003  4                                                       0,0000        33,33%        0,0100        1,151        
+   Service 0x1002 Version MAX.MAX Instance 0x0002  4                                                       0,0000        33,33%        0,0100        1,151        
+   Service 0x1001 Version MAX.MAX Instance 0x0001  4                                                       0,0000        33,33%        0,0100        1,151        
+ 172.18.0.8 (172.18.0.8)                           751                                                     0,0005        4,01%         0,0100        1,119        
+  Subscribe Eventgroup                             747                                                     0,0005        99,47%        0,0100        3,486        
+   Service 0x1002 Version 0.0 Instance 0x0002      747                                                     0,0005        100,00%       0,0100        3,486        
+  Find Service                                     4                                                       0,0000        0,53%         0,0100        1,119        
+   Service 0x1002 Version MAX.MAX Instance 0x0002  4                                                       0,0000        100,00%       0,0100        1,119        
+ 172.18.0.7 (172.18.0.7)                           756                                                     0,0005        4,04%         0,0200        0,000        
+  Subscribe Eventgroup                             748                                                     0,0005        98,94%        0,0100        4,405        
+   Service 0x1003 Version 0.0 Instance 0x0003      1                                                       0,0000        0,13%         0,0100        9,780        
+   Service 0x1001 Version 0.0 Instance 0x0001      747                                                     0,0005        99,87%        0,0100        4,405        
+  Find Service                                     8                                                       0,0000        1,06%         0,0200        0,000        
+   Service 0x1002 Version MAX.MAX Instance 0x0002  4                                                       0,0000        50,00%        0,0100        0,000        
+   Service 0x1001 Version MAX.MAX Instance 0x0001  4                                                       0,0000        50,00%        0,0100        0,000        
+ 172.18.0.6 (172.18.0.6)                           1505                                                    0,0010        8,04%         0,0200        1,886        
+  Subscribe Eventgroup                             1497                                                    0,0010        99,47%        0,0200        3,484        
+   Service 0x1003 Version 0.0 Instance 0x0003      749                                                     0,0005        50,03%        0,0200        3,881        
+   Service 0x1002 Version 0.0 Instance 0x0002      748                                                     0,0005        49,97%        0,0200        3,484        
+  Find Service                                     8                                                       0,0000        0,53%         0,0200        1,886        
+   Service 0x1003 Version MAX.MAX Instance 0x0003  4                                                       0,0000        50,00%        0,0100        1,886        
+   Service 0x1002 Version MAX.MAX Instance 0x0002  4                                                       0,0000        50,00%        0,0100        1,886        
+ 172.18.0.5 (172.18.0.5)                           3732                                                    0,0025        19,94%        0,0500        3,482        
+  Subscribe Eventgroup Ack                         2984                                                    0,0020        79,96%        0,0400        3,484        
+   Service 0x1003 Version 0.0 Instance 0x0003      1                                                       0,0000        0,03%         0,0100        9,785        
+   Service 0x1002 Version 0.0 Instance 0x0002      2983                                                    0,0020        99,97%        0,0400        3,484        
+  Offer Service                                    748                                                     0,0005        20,04%        0,0100        3,482        
+   Service 0x1002 Version 0.0 Instance 0x0002      748                                                     0,0005        100,00%       0,0100        3,482        
+ 172.18.0.4 (172.18.0.4)                           2989                                                    0,0020        15,97%        0,0800        9,780        
+  Subscribe Eventgroup Ack                         2241                                                    0,0015        74,97%        0,0600        9,781        
+   Service 0x1003 Version 0.0 Instance 0x0003      2241                                                    0,0015        100,00%       0,0600        9,781        
+  Offer Service                                    748                                                     0,0005        25,03%        0,0200        9,780        
+   Service 0x1003 Version 0.0 Instance 0x0003      748                                                     0,0005        100,00%       0,0200        9,780        
+ 172.18.0.3 (172.18.0.3)                           753                                                     0,0005        4,02%         0,0200        4,402        
+  Subscribe Eventgroup                             749                                                     0,0005        99,47%        0,0200        4,402        
+   Service 0x1003 Version 0.0 Instance 0x0003      1                                                       0,0000        0,13%         0,0100        9,780        
+   Service 0x1001 Version 0.0 Instance 0x0001      748                                                     0,0005        99,87%        0,0200        4,402        
+  Find Service                                     4                                                       0,0000        0,53%         0,0100        2,394        
+   Service 0x1001 Version MAX.MAX Instance 0x0001  4                                                       0,0000        100,00%       0,0100        2,394        
+ 172.18.0.2 (172.18.0.2)                           2232                                                    0,0015        11,93%        0,0800        9,780        
+  Subscribe Eventgroup                             2229                                                    0,0015        99,87%        0,0500        9,782        
+   Service 0x1003 Version 0.0 Instance 0x0003      746                                                     0,0005        33,47%        0,0500        9,782        
+   Service 0x1002 Version 0.0 Instance 0x0002      741                                                     0,0005        33,24%        0,0100        11,399       
+   Service 0x1001 Version 0.0 Instance 0x0001      742                                                     0,0005        33,29%        0,0100        10,377       
+  Find Service                                     3                                                       0,0000        0,13%         0,0300        9,780        
+   Service 0x1003 Version MAX.MAX Instance 0x0003  1                                                       0,0000        33,33%        0,0100        9,780        
+   Service 0x1002 Version MAX.MAX Instance 0x0002  1                                                       0,0000        33,33%        0,0100        9,780        
+   Service 0x1001 Version MAX.MAX Instance 0x0001  1                                                       0,0000        33,33%        0,0100        9,780        
+ 172.18.0.10 (172.18.0.10)                         3738                                                    0,0025        19,98%        0,0600        4,400        
+  Subscribe Eventgroup Ack                         2990                                                    0,0020        79,99%        0,0500        4,402        
+   Service 0x1003 Version 0.0 Instance 0x0003      5                                                       0,0000        0,17%         0,0500        9,780        
+   Service 0x1001 Version 0.0 Instance 0x0001      2985                                                    0,0020        99,83%        0,0500        4,402        
+  Offer Service                                    748                                                     0,0005        20,01%        0,0100        4,400        
+   Service 0x1001 Version 0.0 Instance 0x0001      748                                                     0,0005        100,00%       0,0100        4,400        
+Destination Addresses                              18713                                                   0,0125        100%          0,3100        9,780        
+ 224.244.224.245 (224.244.224.245)                 2282                                                    0,0015        12,19%        0,0700        2,488        
+  Offer Service                                    2243                                                    0,0015        98,29%        0,0300        9,780        
+   Service 0x1003 Version 0.0 Instance 0x0003      748                                                     0,0005        33,35%        0,0200        9,780        
+   Service 0x1002 Version 0.0 Instance 0x0002      747                                                     0,0005        33,30%        0,0100        3,482        
+   Service 0x1001 Version 0.0 Instance 0x0001      748                                                     0,0005        33,35%        0,0100        4,400        
+  Find Service                                     39                                                      0,0000        1,71%         0,0700        2,488        
+   Service 0x1003 Version MAX.MAX Instance 0x0003  9                                                       0,0000        23,08%        0,0200        2,488        
+   Service 0x1002 Version MAX.MAX Instance 0x0002  17                                                      0,0000        43,59%        0,0300        2,488        
+   Service 0x1001 Version MAX.MAX Instance 0x0001  13                                                      0,0000        33,33%        0,0200        1,351        
+ 172.18.0.9 (172.18.0.9)                           2245                                                    0,0015        12,00%        0,0300        4,402        
+  Subscribe Eventgroup Ack                         2245                                                    0,0015        100,00%       0,0300        4,402        
+   Service 0x1003 Version 0.0 Instance 0x0003      750                                                     0,0005        33,41%        0,0300        9,781        
+   Service 0x1002 Version 0.0 Instance 0x0002      747                                                     0,0005        33,27%        0,0100        3,486        
+   Service 0x1001 Version 0.0 Instance 0x0001      748                                                     0,0005        33,32%        0,0200        4,402        
+ 172.18.0.8 (172.18.0.8)                           747                                                     0,0005        3,99%         0,0100        3,486        
+  Subscribe Eventgroup Ack                         747                                                     0,0005        100,00%       0,0100        3,486        
+   Service 0x1002 Version 0.0 Instance 0x0002      747                                                     0,0005        100,00%       0,0100        3,486        
+ 172.18.0.7 (172.18.0.7)                           748                                                     0,0005        4,00%         0,0100        4,405        
+  Subscribe Eventgroup Ack                         748                                                     0,0005        100,00%       0,0100        4,405        
+   Service 0x1003 Version 0.0 Instance 0x0003      1                                                       0,0000        0,13%         0,0100        9,780        
+   Service 0x1001 Version 0.0 Instance 0x0001      747                                                     0,0005        99,87%        0,0100        4,405        
+ 172.18.0.6 (172.18.0.6)                           1497                                                    0,0010        8,00%         0,0200        3,484        
+  Subscribe Eventgroup Ack                         1497                                                    0,0010        100,00%       0,0200        3,484        
+   Service 0x1003 Version 0.0 Instance 0x0003      749                                                     0,0005        50,03%        0,0200        3,881        
+   Service 0x1002 Version 0.0 Instance 0x0002      748                                                     0,0005        49,97%        0,0200        3,484        
+ 172.18.0.5 (172.18.0.5)                           2984                                                    0,0020        15,95%        0,0400        3,484        
+  Subscribe Eventgroup                             2984                                                    0,0020        100,00%       0,0400        3,484        
+   Service 0x1003 Version 0.0 Instance 0x0003      1                                                       0,0000        0,03%         0,0100        9,785        
+   Service 0x1002 Version 0.0 Instance 0x0002      2983                                                    0,0020        99,97%        0,0400        3,484        
+ 172.18.0.4 (172.18.0.4)                           2241                                                    0,0015        11,98%        0,0600        9,780        
+  Subscribe Eventgroup                             2241                                                    0,0015        100,00%       0,0600        9,780        
+   Service 0x1003 Version 0.0 Instance 0x0003      2241                                                    0,0015        100,00%       0,0600        9,780        
+ 172.18.0.3 (172.18.0.3)                           749                                                     0,0005        4,00%         0,0200        4,402        
+  Subscribe Eventgroup Ack                         749                                                     0,0005        100,00%       0,0200        4,402        
+   Service 0x1003 Version 0.0 Instance 0x0003      1                                                       0,0000        0,13%         0,0100        9,781        
+   Service 0x1001 Version 0.0 Instance 0x0001      748                                                     0,0005        99,87%        0,0200        4,402        
+ 172.18.0.2 (172.18.0.2)                           2230                                                    0,0015        11,92%        0,0600        9,780        
+  Subscribe Eventgroup Ack                         2229                                                    0,0015        99,96%        0,0500        9,782        
+   Service 0x1003 Version 0.0 Instance 0x0003      746                                                     0,0005        33,47%        0,0500        9,782        
+   Service 0x1002 Version 0.0 Instance 0x0002      741                                                     0,0005        33,24%        0,0100        11,399       
+   Service 0x1001 Version 0.0 Instance 0x0001      742                                                     0,0005        33,29%        0,0100        10,377       
+  Offer Service                                    1                                                       0,0000        0,04%         0,0100        9,780        
+   Service 0x1002 Version 0.0 Instance 0x0002      1                                                       0,0000        100,00%       0,0100        9,780        
+ 172.18.0.10 (172.18.0.10)                         2990                                                    0,0020        15,98%        0,0500        4,401        
+  Subscribe Eventgroup                             2990                                                    0,0020        100,00%       0,0500        4,401        
+   Service 0x1003 Version 0.0 Instance 0x0003      5                                                       0,0000        0,17%         0,0500        9,780        
+   Service 0x1001 Version 0.0 Instance 0x0001      2985                                                    0,0020        99,83%        0,0500        4,401        
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,3 @@
+[submodule "experiments/someip_traces"]
+	path = experiments/someip_traces
+	url = https://github.com/Alkhatibnatasha/someip_traces.git

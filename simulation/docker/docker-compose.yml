@@ -1,0 +1,68 @@
+version: '3.8'
+
+# Rede simulada SOME/IP — mesma subnet dos PCAPs originais (172.18.0.0/24)
+networks:
+  someip_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/24
+
+services:
+
+  # IDS — captura e classifica tráfego em tempo real
+  ids:
+    build:
+      context: ../..
+      dockerfile: simulation/docker/Dockerfile.ids
+    container_name: someip_ids
+    network_mode: "host"          # captura toda a rede someip_net
+    volumes:
+      - ../../detection/multiclass/model:/app/model:ro
+      - ../../simulation/results:/app/results
+    command: >
+      python simulation/ids/ids_live.py
+        --iface eth0
+        --model /app/model
+        --log /app/results/detections.jsonl
+        --threshold 0.5
+    depends_on:
+      - service_normal
+
+  # Serviço benigno — tráfego SOME/IP normal
+  service_normal:
+    build:
+      context: ../..
+      dockerfile: simulation/docker/Dockerfile.replay
+    container_name: someip_normal
+    networks:
+      someip_net:
+        ipv4_address: 172.18.0.2
+    volumes:
+      - ../../:/app
+    command: >
+      python simulation/replay/replay_sim.py
+        --scenario benign
+        --iface eth0
+        --speed 5.0
+
+  # Atacante — replay do cenário escolhido via SCENARIO env var
+  attacker:
+    build:
+      context: ../..
+      dockerfile: simulation/docker/Dockerfile.replay
+    container_name: someip_attacker
+    networks:
+      someip_net:
+        ipv4_address: 172.18.0.17
+    volumes:
+      - ../../:/app
+    environment:
+      - SCENARIO=fuzzy          # trocar por: dos, mitm_multi, mitm_single
+    command: >
+      sh -c "python simulation/replay/replay_sim.py
+        --scenario $$SCENARIO
+        --iface eth0
+        --speed 5.0"
+    depends_on:
+      - service_normal

@@ -6,6 +6,17 @@ data/dataset_ism_xgboost/tr_te_sets/
 data/parsed_packets.csv
 data/features/
 
+# Arrays numpy e CSVs grandes (gerados pelo pipeline, não versionar)
+**/*.npy
+data/npy/*.npy
+data/npy/*.csv
+experiments/notebooks/output_parser/parsed_packets.csv
+experiments/notebooks/output_parser/all_features_raw.csv
+experiments/notebooks/data/pcap/csv_data/*.csv
+experiments/notebooks/data/pcap/csv_data/*.pcap
+data_exploration/wireshark/**/*.csv
+data_exploration/wireshark/**/*.pdf
+
 # Arquivos temporários
 experiments/files.zip
 experiments/files/.venv/
@@ -31,3 +42,17 @@ experiments/notebooks/data/pcap/fuzzy_sd_offer_rand_noti(2).pcap
 experiments/notebooks/data/pcap/fuzzy_sd_offer_rand_noti(3).pcap
 experiments/notebooks/data/pcap/mitm_multi_attacker.pcap
 experiments/notebooks/data/pcap/mitm_single_attacker.pcap
+data/npy/all_features_raw.csv
+data/npy/analyze_v4.txt
+data/npy/extraction_log_v2.txt
+data/npy/extraction_log_v3.txt
+data/npy/extraction_log_v4_err.txt
+data/npy/extraction_log_v4.txt
+data/npy/extraction_log.txt
+data/npy/extraction_v5_err.txt
+data/npy/extraction_v5.txt
+data/npy/test_features.csv
+data/npy/train_features.csv
+data/npy/X_test.npy
+data/npy/X_train.npy
+data/npy/y_test.npy

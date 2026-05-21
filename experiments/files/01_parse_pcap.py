@@ -56,12 +56,10 @@ SOMEIP_MIN_LEN = 16
 SOMEIP_SD_SERVICE = 0xFFFF
 """int: Service ID reservado pelo AUTOSAR para mensagens SOME/IP-SD."""
 
-SOMEIP_PORT_MIN = 30490
-SOMEIP_PORT_MAX = 30510
-"""int: Intervalo de portas SOME/IP usado pelo vSomeIP neste dataset.
-    30490 = SOME/IP-SD multicast (padrão AUTOSAR).
-    30501-30503 = serviços GPS, IMU e VDE da simulação.
-"""
+# Portas não são usadas como filtro primário — detecção é estrutural
+# (parse_someip_header + is_valid_someip). Mantidas apenas como referência.
+SOMEIP_PORT_HINT = {30490, 30501, 30502, 30503}
+"""set: Portas conhecidas do vSomeIP neste dataset (referência, não filtro)."""
 
 MSG_TYPE_NAMES = {
     0x00: "REQUEST",
@@ -81,7 +79,21 @@ PCAP_LABEL_MAP = {
     "mitm_multi_attacker.pcap":          "mitm",
     "mitm_single_attacker.pcap":         "mitm",
 }
-"""dict: Mapeamento nome-do-arquivo -> rótulo de classe para os 7 PCAPs do dataset."""
+"""dict: Mapeamento nome-do-arquivo -> tipo de ataque (para referência)."""
+
+# IPs legítimos dos ECUs — identificados no tráfego benigno
+LEGIT_IPS = {f"172.18.0.{i}" for i in range(2, 11)} | {"224.244.224.245"}
+
+# IPs dos atacantes por PCAP — identificados por reverse engineering vs benigno
+ATTACKER_IPS_MAP = {
+    "benign_traffic.pcap":               set(),
+    "dos_noti_flood.pcap":               {"172.18.0.11"},
+    "fuzzy_sd_offer_rand_noti(1).pcap":  {"172.18.0.17"},
+    "fuzzy_sd_offer_rand_noti(2).pcap":  {"172.18.0.12"},
+    "fuzzy_sd_offer_rand_noti(3).pcap":  {"172.18.0.12"},
+    "mitm_multi_attacker.pcap":          {"172.18.0.14", "172.18.0.15"},
+    "mitm_single_attacker.pcap":         {"172.18.0.13"},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -138,54 +150,78 @@ def parse_someip_header(payload_bytes: bytes) -> dict | None:
             "msg_type_name": MSG_TYPE_NAMES.get(msg_type, f"0x{msg_type:02X}"),
             "return_code":   return_code,
             "is_sd":         service_id == SOMEIP_SD_SERVICE,
-            "payload_bytes": someip_payload,
-            "payload_hex":   someip_payload[:32].hex(),
+            "payload_bytes":      someip_payload,
+            "someip_payload_hex": someip_payload[:64].hex(),
         }
     except struct.error:
         return None
 
 
-def is_someip_port(sport: int, dport: int) -> bool:
-    """Verifica se o par de portas indica tráfego SOME/IP.
+SOMEIP_VALID_MSG_TYPES  = {0x00, 0x01, 0x02, 0x40, 0x41, 0x42, 0x80, 0x81, 0xC0, 0xC1}
+SOMEIP_VALID_PROTO_VER  = {0x01}
 
-    O intervalo 30490-30510 cobre a porta SOME/IP-SD padrão (30490) e as
-    portas de serviço usadas pelo vSomeIP neste dataset (30501-30503).
-    O intervalo estendido até 30510 garante tolerância a variações de
-    configuração sem capturar tráfego não-SOME/IP.
+def is_valid_someip(raw_payload: bytes) -> bool:
+    """Detecta SOME/IP por estrutura de cabeçalho, sem depender de porta.
+
+    Valida os campos invariantes do cabeçalho de 16 bytes:
+    - proto_ver deve ser 0x01 (único valor definido pelo AUTOSAR)
+    - msg_type deve pertencer ao conjunto de tipos válidos
+    - length deve ser consistente com o tamanho do payload recebido
+
+    Essa abordagem replica o que o Wireshark faz com as heurísticas
+    someip_tcp_heur / someip_udp_heur, capturando tráfego em qualquer porta.
 
     Args:
-        sport: Porta de origem do pacote TCP/UDP.
-        dport: Porta de destino do pacote TCP/UDP.
+        raw_payload: Bytes crus a partir do início do payload TCP/UDP.
 
     Returns:
-        ``True`` se ao menos uma das portas estiver no intervalo SOME/IP.
+        ``True`` se o payload é um cabeçalho SOME/IP estruturalmente válido.
     """
-    return (SOMEIP_PORT_MIN <= sport <= SOMEIP_PORT_MAX) or \
-           (SOMEIP_PORT_MIN <= dport <= SOMEIP_PORT_MAX)
+    if len(raw_payload) < SOMEIP_MIN_LEN:
+        return False
+    try:
+        length   = struct.unpack_from(">I", raw_payload, 4)[0]
+        proto_ver = raw_payload[12]
+        msg_type  = raw_payload[14]
+    except (struct.error, IndexError):
+        return False
+    if proto_ver not in SOMEIP_VALID_PROTO_VER:
+        return False
+    if msg_type not in SOMEIP_VALID_MSG_TYPES:
+        return False
+    # length = bytes restantes após o campo length (offset 8 em diante)
+    # mínimo aceitável é 8 (resto do header fixo sem payload)
+    if length < 8:
+        return False
+    return True
 
 
-def parse_packet(pkt, label: str, pcap_file: str) -> dict | None:
+def parse_packet(pkt, attack_type: str, pcap_file: str,
+                 attacker_ips: set) -> dict | None:
     """Extrai e estrutura os campos de todas as camadas de um pacote Scapy.
 
-    Percorre as camadas IP > TCP/UDP > SOME/IP e monta um registro tabular
-    com todos os campos relevantes para a Etapa 2 (extração de features).
-    Pacotes sem camada IP, sem camada de transporte ou fora das portas
-    SOME/IP são descartados (retornam ``None``).
+    Mantém TODOS os frames TCP/UDP (incluindo ACKs sem payload SOME/IP),
+    replicando o pipeline de Kim et al. (2026) que processa ~14M frames.
+    Rotula cada pacote por src_ip: ataque se vier de IP desconhecido.
 
     Args:
-        pkt: Pacote Scapy lido pelo ``PcapReader``.
-        label: Rótulo de classe do PCAP de origem (ex: ``"normal"``, ``"dos"``).
-        pcap_file: Nome do arquivo PCAP de origem, usado para rastreabilidade.
+        pkt:          Pacote Scapy lido pelo PcapReader.
+        attack_type:  Tipo de ataque do PCAP ("normal", "dos", "fuzzy", "mitm").
+        pcap_file:    Nome do arquivo PCAP de origem.
+        attacker_ips: Conjunto de IPs do atacante neste PCAP.
 
     Returns:
-        Dicionário com os campos de todas as camadas prontos para gravação
-        no CSV, ou ``None`` se o pacote não for SOME/IP válido.
+        Dicionário com campos de todas as camadas, ou None se o pacote
+        não tiver camada IP ou não for TCP/UDP.
     """
     if not pkt.haslayer(IP):
         return None
 
     ip = pkt[IP]
     ts = float(pkt.time)
+
+    # Rotulagem por src_ip: 1=ataque se IP desconhecido, 0=normal caso contrário
+    label = 1 if ip.src in attacker_ips else 0
 
     record = {
         # Camada IP
@@ -205,24 +241,26 @@ def parse_packet(pkt, label: str, pcap_file: str) -> dict | None:
         "tcp_seq":       None,
         "tcp_ack":       None,
         "tcp_flags":     None,
-        # Cabeçalho SOME/IP (preenchido abaixo)
-        "someip_valid":      False,
-        "service_id":        None,
-        "method_id":         None,
-        "someip_len":        None,
-        "client_id":         None,
-        "session_id":        None,
-        "proto_ver":         None,
-        "iface_ver":         None,
-        "msg_type":          None,
-        "msg_type_name":     None,
-        "return_code":       None,
-        "is_sd":             None,
-        "payload_hex":       None,
-        "someip_payload_len": None,
+        # Cabeçalho SOME/IP (preenchido abaixo; None se TCP sem payload)
+        "someip_valid":          False,
+        "service_id":            None,
+        "method_id":             None,
+        "someip_len":            None,
+        "client_id":             None,
+        "session_id":            None,
+        "proto_ver":             None,
+        "iface_ver":             None,
+        "msg_type":              None,
+        "msg_type_name":         None,
+        "return_code":           None,
+        "is_sd":                 None,
+        "transport_payload_hex": None,
+        "someip_payload_hex":    None,
+        "someip_payload_len":    None,
         # Metadados de origem
-        "label":     label,
-        "pcap_file": pcap_file,
+        "label":       label,        # 0=normal, 1=ataque (por src_ip)
+        "attack_type": attack_type,  # tipo de ataque do PCAP (referência)
+        "pcap_file":   pcap_file,
     }
 
     raw_payload = None
@@ -252,37 +290,41 @@ def parse_packet(pkt, label: str, pcap_file: str) -> dict | None:
         if pkt.haslayer(Raw):
             raw_payload = bytes(pkt[Raw].load)
     else:
+        # Descarta frames não-TCP/UDP (ARP, IGMP, ICMP, etc.)
         return None
 
-    if not is_someip_port(record["src_port"], record["dst_port"]):
-        return None
-
+    # Preenche payload de transporte para qualquer frame com dados
     if raw_payload:
-        sh = parse_someip_header(raw_payload)
-        if sh:
-            record.update({
-                "someip_valid":       True,
-                "service_id":         sh["service_id"],
-                "method_id":          sh["method_id"],
-                "someip_len":         sh["length"],
-                "client_id":          sh["client_id"],
-                "session_id":         sh["session_id"],
-                "proto_ver":          sh["proto_ver"],
-                "iface_ver":          sh["iface_ver"],
-                "msg_type":           sh["msg_type"],
-                "msg_type_name":      sh["msg_type_name"],
-                "return_code":        sh["return_code"],
-                "is_sd":              sh["is_sd"],
-                "payload_hex":        sh["payload_hex"],
-                "someip_payload_len": len(sh["payload_bytes"]),
-            })
-        # Pacotes na porta SOME/IP sem header válido ainda são mantidos
-        # (ex: pacotes SD fragmentados ou com payload vazio)
+        record["transport_payload_hex"] = raw_payload[:64].hex()
+        # Tenta parsear SOME/IP somente se o payload for estruturalmente válido
+        if is_valid_someip(raw_payload):
+            sh = parse_someip_header(raw_payload)
+            if sh:
+                record.update({
+                    "someip_valid":       True,
+                    "service_id":         sh["service_id"],
+                    "method_id":          sh["method_id"],
+                    "someip_len":         sh["length"],
+                    "client_id":          sh["client_id"],
+                    "session_id":         sh["session_id"],
+                    "proto_ver":          sh["proto_ver"],
+                    "iface_ver":          sh["iface_ver"],
+                    "msg_type":           sh["msg_type"],
+                    "msg_type_name":      sh["msg_type_name"],
+                    "return_code":        sh["return_code"],
+                    "is_sd":              sh["is_sd"],
+                    "someip_payload_hex": sh["someip_payload_hex"],
+                    "someip_payload_len": len(sh["payload_bytes"]),
+                })
 
+    # Frames TCP sem payload (ACK puro, SYN, FIN) são mantidos com
+    # transport_payload_hex=None e someip_valid=False — necessário para
+    # reproduzir o total de ~14M amostras de Kim et al. (2026).
     return record
 
 
-def process_all_pcaps(pcap_dir: str, output_csv: str) -> str:
+def process_all_pcaps(pcap_dir: str, output_csv: str,
+                      pcap_filter: list = None) -> str:
     """Processa todos os PCAPs do dataset e salva um CSV consolidado.
 
     Itera sobre os 7 arquivos definidos em ``PCAP_LABEL_MAP``, aplica
@@ -325,43 +367,57 @@ def process_all_pcaps(pcap_dir: str, output_csv: str) -> str:
         "someip_valid", "service_id", "method_id", "someip_len",
         "client_id", "session_id", "proto_ver", "iface_ver",
         "msg_type", "msg_type_name", "return_code", "is_sd",
-        "payload_hex", "someip_payload_len",
-        "label", "pcap_file",
+        "transport_payload_hex", "someip_payload_hex", "someip_payload_len",
+        "label",        # 0=normal, 1=ataque (por src_ip)
+        "attack_type",  # tipo de ataque do PCAP ("normal","dos","fuzzy","mitm")
+        "pcap_file",
     ]
 
     with open(out_path, "w", newline="", encoding="utf-8") as fout:
         writer = csv.DictWriter(fout, fieldnames=COLUMNS)
         writer.writeheader()
 
-        for pcap_name, label in PCAP_LABEL_MAP.items():
+        pcap_items = {k: v for k, v in PCAP_LABEL_MAP.items()
+                      if pcap_filter is None or k in pcap_filter}
+
+        for pcap_name, attack_type in pcap_items.items():
             pcap_path = pcap_dir / pcap_name
             if not pcap_path.exists():
-                print(f"  [PULANDO] Arquivo não encontrado: {pcap_path}")
+                print(f"  [PULANDO] Arquivo nao encontrado: {pcap_path}")
                 continue
 
-            print(f"\n[>>] Processando: {pcap_name}  (rotulo={label})")
+            attacker_ips = ATTACKER_IPS_MAP.get(pcap_name, set())
+            print(f"\n[>>] {pcap_name}  tipo={attack_type}  "
+                  f"attackers={attacker_ips if attacker_ips else 'nenhum'}")
             n_pkts = 0
             n_parsed = 0
+            n_attack = 0
             try:
                 with PcapReader(str(pcap_path)) as reader:
                     for pkt in reader:
                         n_pkts += 1
-                        rec = parse_packet(pkt, label=label, pcap_file=pcap_name)
+                        rec = parse_packet(pkt, attack_type=attack_type,
+                                           pcap_file=pcap_name,
+                                           attacker_ips=attacker_ips)
                         if rec:
                             row = {col: rec.get(col, None) for col in COLUMNS}
                             writer.writerow(row)
                             n_parsed += 1
                             rows_written += 1
+                            if rec["label"] == 1:
+                                n_attack += 1
                         if n_pkts % 100_000 == 0:
-                            print(f"  ... {n_pkts:,} pkts lidos, {n_parsed:,} SOME/IP")
+                            print(f"  ... {n_pkts:,} pkts lidos, {n_parsed:,} escritos "
+                                  f"({n_attack:,} ataque)")
             except Exception as e:
                 print(f"  [ERRO] Falha ao ler PCAP: {e}")
                 continue
 
             total_pkts   += n_pkts
             total_parsed += n_parsed
-            print(f"  Pacotes totais: {n_pkts:>8,} | SOME/IP extraidos: {n_parsed:>8,} "
-                  f"({100*n_parsed/max(n_pkts,1):.1f}%)")
+            pct_attack = 100 * n_attack / max(n_parsed, 1)
+            print(f"  Total: {n_pkts:>8,} pkts | {n_parsed:>8,} escritos | "
+                  f"{n_attack:>7,} ataque ({pct_attack:.1f}%)")
 
     print(f"\n{'='*60}")
     print(f"CONCLUIDOO")
