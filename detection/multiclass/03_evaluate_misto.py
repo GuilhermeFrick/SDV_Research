@@ -64,15 +64,14 @@ def normalize(X: np.ndarray, norm: dict) -> np.ndarray:
 
 def evaluate(csv_path: Path, model, norm: dict) -> dict:
     print(f'\nCarregando {csv_path.name}...')
-    X_chunks, y_chunks = [], []
+    x_chunks, y_chunks = [], []
     for chunk in pd.read_csv(csv_path, chunksize=CHUNK):
-        # f22 padrão 1.0 se ausente (dados Kim sem FakeClientID)
         if 'f22_src_clientid_diversity' not in chunk.columns:
             chunk['f22_src_clientid_diversity'] = 1.0
-        X_chunks.append(chunk[FEAT_COLS].fillna(0).values)
+        x_chunks.append(chunk[FEAT_COLS].fillna(0).values)
         y_chunks.append(chunk['label'].values.astype(int))
 
-    X = np.vstack(X_chunks)
+    X = np.vstack(x_chunks)
     y = np.concatenate(y_chunks)
     print(f'  {len(X):,} amostras carregadas.')
 
@@ -83,15 +82,15 @@ def evaluate(csv_path: Path, model, norm: dict) -> dict:
             print(f'  {name:<15}: {n:>10,}  ({n/len(y)*100:.1f}%)')
 
     print('\nNormalizando...')
-    X_norm = normalize(X, norm)
+    x_norm = normalize(X, norm)
 
     print('Classificando...')
     t0     = time.perf_counter()
-    y_pred = model.predict(X_norm)
+    y_pred = model.predict(x_norm)
     t_ms   = (time.perf_counter() - t0) / len(X) * 1000
 
-    t0_b = time.perf_counter()
-    y_prob = model.predict_proba(X_norm)
+    t0_b       = time.perf_counter()
+    model.predict_proba(x_norm)
     throughput = len(X) / (time.perf_counter() - t0_b)
 
     acc      = float(accuracy_score(y, y_pred))
@@ -155,7 +154,7 @@ def main(csv_path: Path):
     if orig_path.exists():
         with open(orig_path) as f:
             orig = json.load(f)
-        print('\n── Comparação: original vs misto ──────────────────────')
+        print('\n-- Comparação: original vs misto ----------------------')
         print(f'  {"Métrica":<20} {"Original":>12} {"Misto":>12} {"Delta":>10}')
         print(f'  {"-"*56}')
         for key, label in [('f1_macro', 'F1 Macro'),
@@ -174,7 +173,7 @@ def main(csv_path: Path):
             if ov is not None:
                 print(f'  {cls:<20} {ov:>10.4f} {mv:>10.4f} {mv-ov:>+10.4f}')
             else:
-                print(f'  {cls:<20} {"N/A":>10} {mv:>10.4f} {"—":>10}')
+                print(f'  {cls:<20} {"N/A":>10} {mv:>10.4f} {"N/A":>10}')
 
 
 if __name__ == '__main__':

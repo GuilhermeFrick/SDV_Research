@@ -1,11 +1,11 @@
 {
   "f01_ip_time_interval": {
     "min": 0.0,
-    "max": 883210.3584301472
+    "max": 1481.1837949752808
   },
   "f08_someip_payload_change": {
     "min": 0.0,
-    "max": 0.875
+    "max": 0.6458333333333334
   },
   "f11_ip_length_change": {
     "min": 0.0,
@@ -24,7 +24,7 @@
     "max": 1332.0
   },
   "f16_tcpudp_len": {
-    "min": 16.0,
+    "min": 20.0,
     "max": 1356.0
   },
   "f17_src_packet_rate": {
@@ -46,9 +46,5 @@
   "f21_is_relay_service": {
     "min": 0.0,
     "max": 1.0
-  },
-  "f22_src_clientid_diversity": {
-    "min": 1.0,
-    "max": 8.0
   }
 }

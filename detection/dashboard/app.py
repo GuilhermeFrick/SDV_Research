@@ -41,16 +41,18 @@ with st.sidebar:
             "🔀  Mixer de Datasets",
             "⚙️  Pipeline",
             "📈  Resultados",
+            "🎯  Avaliação por Arquivo",
             "🔍  Inferência",
         ],
         label_visibility="collapsed",
     )
 
 # ── Roteamento ─────────────────────────────────────────────────────────────────
-if   "Visão"      in page: from pages import p1_overview  as pg
-elif "Mixer"      in page: from pages import p2_mixer     as pg
-elif "Pipeline"   in page: from pages import p3_pipeline  as pg
-elif "Resultados" in page: from pages import p4_results   as pg
-elif "Inferência" in page: from pages import p5_inference as pg
+if   "Visão"     in page: from pages import p1_overview  as pg
+elif "Mixer"     in page: from pages import p2_mixer     as pg
+elif "Pipeline"  in page: from pages import p3_pipeline  as pg
+elif "Resultados"in page: from pages import p4_results   as pg
+elif "Avaliação" in page: from pages import p6_evaluate  as pg
+elif "Inferência"in page: from pages import p5_inference as pg
 
 pg.render(ROOT)
