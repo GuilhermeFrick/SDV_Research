@@ -6,23 +6,29 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-CLASS_MAP   = {0: "Benigno", 1: "DoS", 2: "Fuzzy",
-               3: "MITM Multi", 4: "MITM Single", 5: "FakeClientID"}
+CLS_MITM_M  = "MITM Multi"
+CLS_MITM_S  = "MITM Single"
+
+CLS_BEN = "Benigno"
+CLS_DOC = "FakeClientID"
+
+CLASS_MAP   = {0: CLS_BEN, 1: "DoS", 2: "Fuzzy",
+               3: CLS_MITM_M, 4: CLS_MITM_S, 5: CLS_DOC}
 CLASS_COLOR = {
-    "Benigno":     "#2ca02c", "DoS":        "#d62728",
-    "Fuzzy":       "#ff7f0e", "MITM Multi":  "#9467bd",
-    "MITM Single": "#8c564b", "FakeClientID":"#1f77b4",
+    CLS_BEN: "#2ca02c", "DoS":      "#d62728",
+    "Fuzzy": "#ff7f0e", CLS_MITM_M: "#9467bd",
+    CLS_MITM_S: "#8c564b", CLS_DOC: "#1f77b4",
 }
 
 ATTACK_SOURCES = {
-    "DoS":         ["dos_noti_flood.csv"],
-    "Fuzzy":       ["fuzzy_sd_offer_rand_noti1.csv",
-                    "fuzzy_sd_offer_rand_noti2.csv",
-                    "fuzzy_sd_offer_rand_noti3.csv"],
-    "MITM Multi":  ["mitm_multi_attacker.csv"],
-    "MITM Single": ["mitm_single_attacker.csv"],
+    "DoS":      ["dos_noti_flood.csv"],
+    "Fuzzy":    ["fuzzy_sd_offer_rand_noti1.csv",
+                 "fuzzy_sd_offer_rand_noti2.csv",
+                 "fuzzy_sd_offer_rand_noti3.csv"],
+    CLS_MITM_M: ["mitm_multi_attacker.csv"],
+    CLS_MITM_S: ["mitm_single_attacker.csv"],
 }
-LABEL_MAP = {"DoS": 1, "Fuzzy": 2, "MITM Multi": 3, "MITM Single": 4}
+LABEL_MAP = {"DoS": 1, "Fuzzy": 2, CLS_MITM_M: 3, CLS_MITM_S: 4}
 
 
 @st.cache_data(show_spinner=False)
@@ -40,50 +46,57 @@ def _sample_timestamps(csv_path: Path, label_col: str,
     return df.sort_values("timestamp").reset_index(drop=True)
 
 
+def _load_attack_part(parsed_dir: Path, atk: str) -> pd.DataFrame | None:
+    frames = []
+    mc_label = LABEL_MAP[atk]
+    for fname in ATTACK_SOURCES[atk]:
+        p = parsed_dir / fname
+        if not p.exists():
+            continue
+        df_a = _sample_timestamps(p, "label", n_sample=20_000)
+        if "label" in df_a.columns:
+            df_a = df_a[df_a["label"] == 1]
+        df_a = df_a.copy()
+        df_a["classe"] = atk
+        df_a["label"]  = mc_label
+        frames.append(df_a[["timestamp", "classe", "label"]])
+    return pd.concat(frames, ignore_index=True) if frames else None
+
+
+def _apply_strategy(df: pd.DataFrame, strategy: str) -> pd.DataFrame:
+    if "Aleatório" in strategy:
+        return df.sample(frac=1, random_state=42).reset_index(drop=True)
+    return df.sort_values("timestamp").reset_index(drop=True)
+
+
+def _load_benigno_sample(parsed_dir: Path, n_benigno: int) -> pd.DataFrame | None:
+    ben_csv = parsed_dir / "benign_traffic.csv"
+    if not ben_csv.exists():
+        return None
+    df_b = _sample_timestamps(ben_csv, "label", n_sample=min(n_benigno, 100_000))
+    df_b["classe"] = CLS_BEN
+    df_b["label"]  = 0
+    return df_b[["timestamp", "classe", "label"]]
+
+
 def _build_preview(parsed_dir: Path,
                    selected_attacks: list[str],
                    n_benigno: int,
                    strategy: str) -> pd.DataFrame | None:
-    """Constrói uma amostra do dataset misto para preview."""
     parts = []
-
-    # Benigno
-    ben_csv = parsed_dir / "benign_traffic.csv"
-    if ben_csv.exists():
-        df_b = _sample_timestamps(ben_csv, "label", n_sample=min(n_benigno, 100_000))
-        df_b["classe"] = "Benigno"
-        df_b["label"]  = 0
-        parts.append(df_b[["timestamp", "classe", "label"]])
-
-    # Ataques selecionados
+    ben = _load_benigno_sample(parsed_dir, n_benigno)
+    if ben is not None:
+        parts.append(ben)
     for atk in selected_attacks:
-        mc_label = LABEL_MAP[atk]
-        for fname in ATTACK_SOURCES[atk]:
-            p = parsed_dir / fname
-            if not p.exists():
-                continue
-            df_a = _sample_timestamps(p, "label", n_sample=20_000)
-            # manter apenas pacotes de ataque (label==1 no arquivo original)
-            if "label" in df_a.columns:
-                df_a = df_a[df_a["label"] == 1]
-            df_a = df_a.copy()
-            df_a["classe"] = atk
-            df_a["label"]  = mc_label
-            parts.append(df_a[["timestamp", "classe", "label"]])
+        part = _load_attack_part(parsed_dir, atk)
+        if part is not None:
+            parts.append(part)
 
     if not parts:
         return None
 
     df = pd.concat(parts, ignore_index=True)
-
-    if strategy == "⏱️ Temporal (por timestamp)":
-        df = df.sort_values("timestamp").reset_index(drop=True)
-    elif strategy == "🎲 Aleatório (embaralhado)":
-        df = df.sample(frac=1, random_state=42).reset_index(drop=True)
-    else:  # proporcional já está ok
-        df = df.sort_values("timestamp").reset_index(drop=True)
-
-    return df
+    return _apply_strategy(df, strategy)
 
 
 def render(root: Path):
@@ -91,7 +104,7 @@ def render(root: Path):
     st.caption("Configure como os arquivos de ataque serão combinados com o tráfego benigno "
                "para gerar o dataset misto respeitando a realidade temporal.")
 
-    parsed_dir = root / "data" / "parsed"
+    parsed_dir = root / "detection" / "data" / "parsed"
 
     # ── Configurações ──────────────────────────────────────────────────────────
     col_cfg, col_prev = st.columns([1, 2])
@@ -164,7 +177,7 @@ def render(root: Path):
                         text_auto=True, title="Distribuição das classes no mix",
                     )
                     fig_bar.update_layout(showlegend=False, height=280,
-                                          margin=dict(t=30, b=10))
+                                          margin={"t": 30, "b": 10})
                     st.plotly_chart(fig_bar, use_container_width=True)
 
                     # ── Timeline — density de pacotes por classe ───────────────
@@ -184,7 +197,7 @@ def render(root: Path):
                             x=bin_centers, y=counts_hist,
                             name=classe,
                             mode="lines",
-                            line=dict(color=CLASS_COLOR.get(classe, "#888"), width=1.5),
+                            line={"color": CLASS_COLOR.get(classe, "#888"), "width": 1.5},
                             fill="tozeroy",
                             fillcolor=CLASS_COLOR.get(classe, "#888"),
                             opacity=0.45,
@@ -193,8 +206,8 @@ def render(root: Path):
                         xaxis_title="Timestamp (s)",
                         yaxis_title="Pacotes por janela",
                         height=320,
-                        margin=dict(t=10, b=30),
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                        margin={"t": 10, "b": 30},
+                        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02},
                     )
                     st.plotly_chart(fig_tl, use_container_width=True)
                     st.caption(
@@ -211,26 +224,48 @@ def render(root: Path):
         else:
             st.info("Configure os parâmetros ao lado e clique em **Gerar Preview**.")
 
-    # ── Botão de exportação ────────────────────────────────────────────────────
+    # ── Geração do dataset misto completo ─────────────────────────────────────
     st.divider()
     st.subheader("💾 Gerar dataset misto completo")
 
-    out_path = root / "detection" / "multiclass" / "data" / "features_misto.csv"
+    atk_map = {"DoS": "dos", "Fuzzy": "fuzzy",
+               CLS_MITM_M: "mitm_multi", CLS_MITM_S: "mitm_single"}
+    atk_args = [atk_map[a] for a in selected if a in atk_map]
 
     col_a, col_b = st.columns([2, 1])
     with col_a:
         st.markdown(
-            f"O pipeline irá:\n"
-            f"1. Ler todos os CSVs selecionados de `data/parsed/`\n"
-            f"2. Ordenar por timestamp (estratégia: **{strategy}**)\n"
-            f"3. Extrair as 13 features stateful em ordem cronológica\n"
-            f"4. Salvar em `detection/multiclass/data/features_misto.csv`\n\n"
-            f"⚠️ Isso pode levar **5–20 minutos** dependendo do hardware."
+            "O pipeline irá:\n"
+            "1. Carregar benigno + ataques selecionados de `detection/data/parsed/`\n"
+            "2. **Normalizar** timestamps de cada arquivo para `[0, duração_benigno]`\n"
+            "3. **Intercalar** todos os pacotes por timestamp normalizado\n"
+            "4. Extrair as 13 features stateful em ordem cronológica\n"
+            "5. Salvar em `multiclass/data/features_misto.csv`\n\n"
+            "⚠️ Pode levar **10–30 minutos** dependendo do hardware."
+        )
+        st.code(
+            f"python multiclass/01c_mix_features.py "
+            f"--attacks {' '.join(atk_args)} "
+            f"--ratio_benigno {ratio_benigno/100:.2f}",
+            language="bash",
         )
     with col_b:
         if st.button("🚀 Gerar features_misto.csv", type="primary",
                      disabled=len(selected) == 0):
-            st.warning(
-                "Execução do pipeline completo disponível na página **⚙️ Pipeline**. "
-                "O preview acima confirma a mistura antes de extrair."
-            )
+            import subprocess, sys
+            det = root / "detection"
+            script = det / "multiclass" / "01c_mix_features.py"
+            cmd = [sys.executable, str(script),
+                   "--attacks"] + atk_args + [
+                   "--ratio_benigno", f"{ratio_benigno/100:.2f}"]
+            placeholder = st.empty()
+            placeholder.info("⏳ Gerando dataset misto... (pode demorar vários minutos)")
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    cwd=str(root))
+            if result.returncode == 0:
+                placeholder.success("✅ features_misto.csv gerado com sucesso!")
+                with st.expander("Saída do script"):
+                    st.code(result.stdout[-3000:], language="text")
+            else:
+                placeholder.error("❌ Erro na geração.")
+                st.code(result.stderr[-2000:], language="text")

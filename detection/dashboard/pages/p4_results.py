@@ -25,8 +25,67 @@ FEAT_NAMES = [
 ]
 
 
-def _load_results(model_dir: Path) -> dict | None:
-    p = model_dir / "results.json"
+COL_DELTA = "Δ (Misto−Original)"
+
+
+def _render_cenario_a(res: dict, res_misto: dict):
+    st.subheader("Cenário A — Original vs Misto")
+    st.caption(
+        "Mesmo modelo, dois datasets de teste: sequencial (original) "
+        "e misto (ataques coexistindo com tráfego benigno)."
+    )
+    metrics = [
+        ("F1 Macro",     "f1_macro",    ".4f"),
+        ("F1 Weighted",  "f1_weighted", ".4f"),
+        ("Acurácia",     "accuracy",    ".4f"),
+        ("Latência/pkt", "t_single_ms", ".2f ms"),
+    ]
+    cols = st.columns(len(metrics))
+    for col, (label, key, fmt) in zip(cols, metrics):
+        orig_v    = res.get(key, 0)
+        misto_v   = res_misto.get(key, 0)
+        suffix    = " ms" if "ms" in fmt else ""
+        fmt_clean = fmt.replace(" ms", "")
+        col.metric(
+            label,
+            f"{misto_v:{fmt_clean}}{suffix}",
+            delta=f"{misto_v - orig_v:+.4f}" if not suffix else None,
+            delta_color="normal",
+            help=f"Original: {orig_v:{fmt_clean}}{suffix}",
+        )
+
+    df_cmp = pd.DataFrame({
+        "Classe":   CLASS_NAMES,
+        "Original": [res["f1_per_class"].get(c, 0)       for c in CLASS_NAMES],
+        "Misto":    [res_misto["f1_per_class"].get(c, 0)  for c in CLASS_NAMES],
+    })
+    df_cmp["_delta"] = df_cmp["Misto"] - df_cmp["Original"]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(name="Original", x=df_cmp["Classe"], y=df_cmp["Original"],
+                         marker_color="#4a8fd4", opacity=0.85))
+    fig.add_trace(go.Bar(name="Misto",    x=df_cmp["Classe"], y=df_cmp["Misto"],
+                         marker_color="#e07b00", opacity=0.85))
+    y_min = max(0, df_cmp[["Original", "Misto"]].min().min() - 0.02)
+    fig.update_layout(
+        barmode="group", height=300,
+        yaxis={"range": [y_min, 1.005]},
+        margin={"t": 10, "b": 10},
+        legend={"orientation": "h", "y": -0.25},
+        yaxis_title="F1-Score",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    df_show = df_cmp.copy()
+    df_show["Original"]  = df_show["Original"].map("{:.4f}".format)
+    df_show["Misto"]     = df_show["Misto"].map("{:.4f}".format)
+    df_show[COL_DELTA]   = df_show["_delta"].map(lambda x: f"{x:+.4f}")
+    st.dataframe(df_show[["Classe", "Original", "Misto", COL_DELTA]],
+                 use_container_width=True, hide_index=True)
+
+
+def _load_results(model_dir: Path, fname: str = "results.json") -> dict | None:
+    p = model_dir / fname
     if not p.exists():
         return None
     with open(p) as f:
@@ -44,8 +103,21 @@ def render(root: Path):
                  "Execute o treino na página ⚙️ Pipeline.")
         return
 
+    res_misto = _load_results(model_dir, "results_misto.json")
+
+    # ── Cenário A ──────────────────────────────────────────────────────────────
+    if res_misto:
+        _render_cenario_a(res, res_misto)
+        st.divider()
+    else:
+        st.info(
+            "Resultados do **Cenário A** não encontrados. "
+            "Gere o dataset misto no **🔀 Mixer** e execute a avaliação "
+            "na página **⚙️ Pipeline → Cenário A**."
+        )
+
     # ── Métricas globais ───────────────────────────────────────────────────────
-    st.subheader("Métricas globais")
+    st.subheader("Métricas globais (dataset sequencial original)")
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("F1 Macro",      f"{res['f1_macro']:.4f}")
     c2.metric("F1 Weighted",   f"{res['f1_weighted']:.4f}")
