@@ -83,10 +83,4 @@ def render(root: Path):
 
     import pandas as pd
     df = pd.DataFrame(rows)
-    st.dataframe(
-        df.style.apply(
-            lambda r: ["color:green" if r["Status"] == "✓" else "color:red"
-                       if r["Status"] == "✗" else "" for _ in r], axis=1
-        ),
-        use_container_width=True, hide_index=True,
-    )
+    st.dataframe(df, use_container_width=True, hide_index=True)
